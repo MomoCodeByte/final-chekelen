@@ -1,0 +1,340 @@
+class AdminDashboard extends StatefulWidget {
+  const AdminDashboard({super.key});
+
+  @override
+  State<AdminDashboard> createState() => _AdminDashboardState();
+}
+
+class _AdminDashboardState extends State<AdminDashboard> {
+  String activeTab = 'dashboard';
+  bool isMobileMenuOpen = false;
+
+  final List<Map<String, dynamic>> menuItems = [
+    {'id': 'dashboard', 'label': 'Dashboard', 'icon': Feather.bar_chart_2},
+    {'id': 'users', 'label': 'User Management', 'icon': Feather.users},
+    {'id': 'crops', 'label': 'Crop Management', 'icon': Feather.sun},
+    {'id': 'orders', 'label': 'Order Management', 'icon': Feather.shopping_cart},
+    {'id': 'transactions', 'label': 'Transactions', 'icon': Feather.credit_card},
+    {'id': 'communications', 'label': 'Communications', 'icon': Feather.message_square},
+    {'id': 'settings', 'label': 'Settings', 'icon': Feather.settings},
+  ];
+
+  final List<Map<String, String>> stats = [
+    {'label': 'Total Users', 'value': '1,234'},
+    {'label': 'Active Crops', 'value': '56'},
+    {'label': 'Pending Orders', 'value': '23'},
+    {'label': 'Revenue', 'value': '\$12,345'},
+  ];
+
+  final List<Map<String, dynamic>> recentOrders = [
+    {
+      'id': 1,
+      'customer': 'John Doe',
+      'items': 'Tomatoes, Carrots',
+      'total': '\$45.00',
+      'status': 'Pending'
+    },
+    {
+      'id': 2,
+      'customer': 'Jane Smith',
+      'items': 'Potatoes, Onions',
+      'total': '\$32.50',
+      'status': 'Completed'
+    },
+    {
+      'id': 3,
+      'customer': 'Mike Johnson',
+      'items': 'Lettuce',
+      'total': '\$18.75',
+      'status': 'Processing'
+    },
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final isDesktop = MediaQuery.of(context).size.width >= 1024;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFE7F4E8), // light green background
+      body: Row(
+        children: [
+          // Sidebar
+          if (isDesktop || isMobileMenuOpen)
+            Container(
+              width: 256,
+              color: Theme.of(context).primaryColor,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Row(
+                      children: [
+                        Text(
+                          'Farm Admin',
+                          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView(
+                      children: menuItems.map((item) => _buildMenuItem(item)).toList(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          // Main Content
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    const Color(0xFF166534).withOpacity(0.05),
+                    const Color(0xFFE7F4E8),
+                  ],
+                ),
+              ),
+              child: Column(
+                children: [
+                  // Top Bar
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 4,
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        if (!isDesktop)
+                          IconButton(
+                            icon: Icon(
+                              isMobileMenuOpen ? Feather.x : Feather.menu,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                isMobileMenuOpen = !isMobileMenuOpen;
+                              });
+                            },
+                          ),
+                        const Expanded(
+                          child: Text(
+                            'Dashboard Overview',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        CircleAvatar(
+                          backgroundColor: Theme.of(context).primaryColor,
+                          child: const Text(
+                            'AD',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Dashboard Content
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Stats Grid
+                          GridView.count(
+                            crossAxisCount: isDesktop ? 4 : 2,
+                            crossAxisSpacing: 24,
+                            mainAxisSpacing: 24,
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            children: stats.map((stat) => _buildStatCard(stat)).toList(),
+                          ),
+                          const SizedBox(height: 24),
+
+                          // Recent Orders
+                          Container(
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.1),
+                                  blurRadius: 4,
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Recent Orders',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  child: DataTable(
+                                    columns: const [
+                                      DataColumn(label: Text('Customer')),
+                                      DataColumn(label: Text('Items')),
+                                      DataColumn(label: Text('Total')),
+                                      DataColumn(label: Text('Status')),
+                                    ],
+                                    rows: recentOrders
+                                        .map((order) => _buildOrderRow(order))
+                                        .toList(),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMenuItem(Map<String, dynamic> item) {
+    final isActive = activeTab == item['id'];
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            activeTab = item['id'];
+            if (MediaQuery.of(context).size.width < 1024) {
+              isMobileMenuOpen = false;
+            }
+          });
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          color: isActive ? Colors.white.withOpacity(0.1) : Colors.transparent,
+          child: Row(
+            children: [
+              Icon(
+                item['icon'],
+                color: Colors.white,
+                size: 24,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                item['label'],
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatCard(Map<String, String> stat) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            stat['label'] ?? '',
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            stat['value'] ?? '',
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  DataRow _buildOrderRow(Map<String, dynamic> order) {
+    Color statusColor;
+    Color statusBackgroundColor;
+
+    switch (order['status']) {
+      case 'Completed':
+        statusColor = Colors.green[800]!;
+        statusBackgroundColor = Colors.green[100]!;
+        break;
+      case 'Pending':
+        statusColor = Colors.yellow[800]!;
+        statusBackgroundColor = Colors.yellow[100]!;
+        break;
+      default:
+        statusColor = Colors.blue[800]!;
+        statusBackgroundColor = Colors.blue[100]!;
+    }
+
+    return DataRow(
+      cells: [
+        DataCell(Text(order['customer'] ?? '')),
+        DataCell(Text(order['items'] ?? '')),
+        DataCell(Text(order['total'] ?? '')),
+        DataCell(
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: statusBackgroundColor,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              order['status'] ?? '',
+              style: TextStyle(
+                color: statusColor,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
