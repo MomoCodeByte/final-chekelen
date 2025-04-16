@@ -49,6 +49,7 @@ dev_dependencies:
   http: ^1.1.0
   fl_chart: ^0.55.0 
   shared_preferences: ^2.0.0
+  flutter_secure_storage: ^9.2.4
   flutter_vector_icons: ^2.0.0 # Replace with the latest version
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

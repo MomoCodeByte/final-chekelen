@@ -1,6 +1,6 @@
 mysql-workbench-community
 
-
+      chekerenDb
 CREATE TABLE users (
     user_id INT PRIMARY KEY AUTO_INCREMENT,
     username VARCHAR(255),
@@ -48,8 +48,7 @@ CREATE TABLE chat (
 
 
 CREATE TABLE transactions (
-    transaction_id IN
-T PRIMARY KEY AUTO_INCREMENT,
+    transaction_id INT PRIMARY KEY AUTO_INCREMENT,
     user_id INT,
     amount DECIMAL(10, 2) NOT NULL,
     transaction_type ENUM('purchase', 'refund', 'commission') NOT NULL,
@@ -57,7 +56,6 @@ T PRIMARY KEY AUTO_INCREMENT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(user_id)
 );
-
 
 CREATE TABLE reports (
     report_id INT PRIMARY KEY AUTO_INCREMENT,
@@ -142,9 +140,9 @@ CREATE TABLE chat (
 );
 
 
+************************************************
 CREATE TABLE transactions (
-    transaction_id IN
-T PRIMARY KEY AUTO_INCREMENT,
+    transaction_id INT PRIMARY KEY AUTO_INCREMENT,
     user_id INT,
     amount DECIMAL(10, 2) NOT NULL,
     transaction_type ENUM('purchase', 'refund', 'commission') NOT NULL,
@@ -152,7 +150,7 @@ T PRIMARY KEY AUTO_INCREMENT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(user_id)
 );
-
+***********************************************
 
 CREATE TABLE reports (
     report_id INT PRIMARY KEY AUTO_INCREMENT,

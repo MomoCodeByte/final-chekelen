@@ -1,5 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_vector_icons/flutter_vector_icons.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
+// Import screens from the files directory
+import './files/dashboard_screen.dart';
+import './files/user_management_screen.dart'; 
+import './files/crop_management_screen.dart';
+import './files/order_management_screen.dart';
+import './files/transaction_screen.dart';
+import './files/chat_screen.dart';
+import './files/reports_screen.dart';
+import './files/settings_screen.dart';
+// import './files/notifications_screen.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -13,45 +25,168 @@ class _AdminDashboardState extends State<AdminDashboard> {
   bool isMobileMenuOpen = false;
 
   final List<Map<String, dynamic>> menuItems = [
-    {'id': 'dashboard', 'label': 'Dashboard', 'icon': Feather.bar_chart_2},
-    {'id': 'users', 'label': 'User Management', 'icon': Feather.users},
-    {'id': 'crops', 'label': 'Crop Management', 'icon': Feather.sun},
-    {'id': 'orders', 'label': 'Order Management', 'icon': Feather.shopping_cart},
-    {'id': 'transactions', 'label': 'Transactions', 'icon': Feather.credit_card},
-    {'id': 'communications', 'label': 'Communications', 'icon': Feather.message_square},
-    {'id': 'settings', 'label': 'Settings', 'icon': Feather.settings},
+    {
+      'id': 'dashboard',
+      'label': 'Dashboard Overview',
+      'icon': Feather.bar_chart_2,
+      'description': 'View overall statistics and performance metrics'
+    },
+    {
+      'id': 'users',
+      'label': 'User Management',
+      'icon': Feather.users,
+      'description': 'Manage customers, farmers, and administrators'
+    },
+    {
+      'id': 'crops',
+      'label': 'Crop Management',
+      'icon': Feather.sun,
+      'description': 'Monitor and manage available crops and inventory'
+    },
+    {
+      'id': 'orders',
+      'label': 'Order Management',
+      'icon': Feather.shopping_cart,
+      'description': 'Track and process customer orders'
+    },
+    {
+      'id': 'transactions',
+      'label': 'Transactions',
+      'icon': Feather.credit_card,
+      'description': 'View and manage financial transactions'
+    },
+    {
+      'id': 'communications',
+      'label': 'Chat System',
+      'icon': Feather.message_square,
+      'description': 'Monitor user communications and support'
+    },
+    {
+      'id': 'reports',
+      'label': 'Reports & Analytics',
+      'icon': Feather.file_text,
+      'description': 'Generate and view system reports'
+    },
+    {
+      'id': 'settings',
+      'label': 'System Settings',
+      'icon': Feather.settings,
+      'description': 'Configure system parameters and preferences'
+    },
+    {
+      'id': 'logout',
+      'label': 'Logout',
+      'icon': Feather.log_out,
+      'description': 'Sign out from the admin panel'
+    },
   ];
 
-  final List<Map<String, String>> stats = [
-    {'label': 'Total Users', 'value': '1,234'},
-    {'label': 'Active Crops', 'value': '56'},
-    {'label': 'Pending Orders', 'value': '23'},
-    {'label': 'Revenue', 'value': '\$12,345'},
-  ];
+void _navigateToScreen(String screenId) async {
+  setState(() {
+    activeTab = screenId;
+    if (!(MediaQuery.of(context).size.width >= 1024)) {
+      isMobileMenuOpen = false; // Close drawer on mobile after selection
+    }
+  });
 
-  final List<Map<String, dynamic>> recentOrders = [
-    {
-      'id': 1,
-      'customer': 'John Doe',
-      'items': 'Tomatoes, Carrots',
-      'total': '\$45.00',
-      'status': 'Pending'
-    },
-    {
-      'id': 2,
-      'customer': 'Jane Smith',
-      'items': 'Potatoes, Onions',
-      'total': '\$32.50',
-      'status': 'Completed'
-    },
-    {
-      'id': 3,
-      'customer': 'Mike Johnson',
-      'items': 'Lettuce',
-      'total': '\$18.75',
-      'status': 'Processing'
-    },
-  ];
+  if (screenId == 'logout') {
+    // Handle logout logic here
+    final _storage = FlutterSecureStorage();
+
+    // Delete the token from secure storage
+    await _storage.delete(key: 'jwt_token');
+    print('Token deleted successfully.');
+
+    // Navigate the user back to the login screen
+    Navigator.of(context).pushReplacementNamed('/welcome');
+  }
+}
+
+  Widget _getScreen() {
+    switch (activeTab) {
+      case 'dashboard':
+        return const DashboardScreen();
+      case 'users':
+        return const UserManagementScreen();
+      case 'crops':
+        return const CropManagementScreen();
+      case 'orders':
+        return const OrderManagementScreen();
+      case 'transactions':
+        return const TransactionScreen();
+      case 'communications':
+        return const ChatScreen();
+      case 'reports':
+        return const ReportsScreen();
+      case 'settings':
+        return const SettingsScreen();
+      default:
+        return const DashboardScreen();
+    }
+  }
+
+  Widget _buildMenuItem(Map<String, dynamic> item) {
+    final isActive = activeTab == item['id'];
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _navigateToScreen(item['id']),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: isActive ? Colors.white.withOpacity(0.1) : Colors.transparent,
+            border: Border(
+              left: BorderSide(
+                color: isActive ? Colors.white : Colors.transparent,
+                width: 4,
+              ),
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                item['icon'],
+                color: Colors.white,
+                size: 20,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item['label'],
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                    if (item['description'] != null)
+                      Text(
+                        item['description'],
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.5),
+                          fontSize: 12,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                  ],
+                ),
+              ),
+              if (isActive)
+                Icon(
+                  Feather.chevron_right,
+                  color: Colors.white,
+                  size: 16,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -60,149 +195,184 @@ class _AdminDashboardState extends State<AdminDashboard> {
     return Scaffold(
       body: Row(
         children: [
-          // Sidebar
           if (isDesktop || isMobileMenuOpen)
             Container(
-              width: 256,
-              color: Theme.of(context).primaryColor,
+              width: 280,
+              color: Colors.green[800],
               child: Column(
                 children: [
-                  Padding(
+                  Container(
                     padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.green[900],
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 4,
+                        ),
+                      ],
+                    ),
                     child: Row(
                       children: [
-                        Text(
-                          'Farm Admin',
-                          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
+                        Icon(
+                          Feather.shield,
+                          color: Colors.white,
+                          size: 32,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Admin Panel',
+                                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                'Farm Management System',
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Colors.white.withOpacity(0.7),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
                   ),
                   Expanded(
-                    child: ListView(
-                      children: menuItems.map((item) => _buildMenuItem(item)).toList(),
+                    child: ListView.builder(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      itemCount: menuItems.length,
+                      itemBuilder: (context, index) {
+                        final item = menuItems[index];
+                        return _buildMenuItem(item);
+                      },
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.green[900],
+                      border: Border(
+                        top: BorderSide(
+                          color: Colors.white.withOpacity(0.1),
+                          width: 1,
+                        ),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          backgroundColor: Colors.white,
+                          child: Icon(
+                            Feather.user,
+                            color: Colors.green[800],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Admin User',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                'admin_panel',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.7),
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            Feather.log_out,
+                            color: Colors.white.withOpacity(0.7),
+                            size: 20,
+                          ),
+                          onPressed: () => _navigateToScreen('logout'),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
-
-          // Main Content
           Expanded(
-            child: Column(
-              children: [
-                // Top Bar
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 4,
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      if (!isDesktop)
-                        IconButton(
-                          icon: Icon(
-                            isMobileMenuOpen ? Feather.x : Feather.menu,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              isMobileMenuOpen = !isMobileMenuOpen;
-                            });
-                          },
+            child: Container(
+              color: Colors.green[50],
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 4,
                         ),
-                      const Expanded(
-                        child: Text(
-                          'Dashboard Overview',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      CircleAvatar(
-                        backgroundColor: Theme.of(context).primaryColor,
-                        child: const Text(
-                          'AD',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Dashboard Content
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      ],
+                    ),
+                    child: Row(
                       children: [
-                        // Stats Grid
-                        GridView.count(
-                          crossAxisCount: isDesktop ? 4 : 2,
-                          crossAxisSpacing: 24,
-                          mainAxisSpacing: 24,
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          children: stats.map((stat) => _buildStatCard(stat)).toList(),
+                        if (!isDesktop)
+                          IconButton(
+                            icon: Icon(
+                              isMobileMenuOpen ? Feather.x : Feather.menu,
+                              color: Colors.green[700],
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                isMobileMenuOpen = !isMobileMenuOpen;
+                              });
+                            },
+                          ),
+                        Expanded(
+                          child: Text(
+                            menuItems.firstWhere((item) => item['id'] == activeTab)['label'],
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.green,
+                            ),
+                          ),
                         ),
-                        const SizedBox(height: 24),
-
-                        // Recent Orders
-                        Container(
-                          padding: const EdgeInsets.all(24),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(8),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                blurRadius: 4,
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Recent Orders',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: DataTable(
-                                  columns: const [
-                                    DataColumn(label: Text('Customer')),
-                                    DataColumn(label: Text('Items')),
-                                    DataColumn(label: Text('Total')),
-                                    DataColumn(label: Text('Status')),
-                                  ],
-                                  rows: recentOrders
-                                      .map((order) => _buildOrderRow(order))
-                                      .toList(),
-                                ),
-                              ),
-                            ],
-                          ),
+                        Row(
+                          children: [
+                            IconButton(
+                              icon: Icon(Feather.bell, color: Colors.green[700]),
+                              onPressed: () {
+                                // TODO: Show notifications
+                              },
+                            ),
+                            IconButton(
+                              icon: Icon(Feather.help_circle, color: Colors.green[700]),
+                              onPressed: () {
+                                // TODO: Show help/documentation
+                              },
+                            ),
+                          ],
                         ),
                       ],
                     ),
                   ),
-                ),
-              ],
+                  Expanded(
+                    child: _getScreen(),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -210,121 +380,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
-  Widget _buildMenuItem(Map<String, dynamic> item) {
-    final isActive = activeTab == item['id'];
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () {
-          setState(() {
-            activeTab = item['id'];
-            if (MediaQuery.of(context).size.width < 1024) {
-              isMobileMenuOpen = false;
-            }
-          });
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          color: isActive ? Colors.white.withOpacity(0.1) : Colors.transparent,
-          child: Row(
-            children: [
-              Icon(
-                item['icon'],
-                color: Colors.white,
-                size: 24,
-              ),
-              const SizedBox(width: 12),
-              Text(
-                item['label'],
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatCard(Map<String, String> stat) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            stat['label'] ?? '',
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            stat['value'] ?? '',
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  DataRow _buildOrderRow(Map<String, dynamic> order) {
-    Color statusColor;
-    Color statusBackgroundColor;
-
-    switch (order['status']) {
-      case 'Completed':
-        statusColor = Colors.green[800]!;
-        statusBackgroundColor = Colors.green[100]!;
-        break;
-      case 'Pending':
-        statusColor = Colors.yellow[800]!;
-        statusBackgroundColor = Colors.yellow[100]!;
-        break;
-      default:
-        statusColor = Colors.blue[800]!;
-        statusBackgroundColor = Colors.blue[100]!;
-    }
-
-    return DataRow(
-      cells: [
-        DataCell(Text(order['customer'] ?? '')),
-        DataCell(Text(order['items'] ?? '')),
-        DataCell(Text(order['total'] ?? '')),
-        DataCell(
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: statusBackgroundColor,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              order['status'] ?? '',
-              style: TextStyle(
-                color: statusColor,
-                fontSize: 14,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
+  @override
+  void initState() {
+    super.initState();
+    // TODO: Initialize API calls here
   }
 }

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
-// ignore: depend_on_referenced_packages
 import 'package:http/http.dart' as http;
 import 'RegistrationScreen.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class LoginScreen extends StatefulWidget {
   @override
@@ -16,7 +16,6 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscureText = true;
   bool _isLoading = false; // Track loading state
 
-  // Function to handle API login
   // Function to handle API login
   Future<void> _login() async {
     // Validate form fields first
@@ -48,11 +47,19 @@ class _LoginScreenState extends State<LoginScreen> {
         final responseData = json.decode(response.body);
         final token = responseData['token'];
 
-        // Print token for debugging
-        print('Login successful! Token: $token');
-      
+        // Store the token securely
+        final _storage = FlutterSecureStorage();
+        try {
+          await _storage.write(key: 'jwt_token', value: token);
+          print('Token stored: $token');
+        } catch (e) {
+          print('Error storing token: $e');
+        }
+
+        // Check the stored token
+        await _checkStoredToken();
+
         // Extract the payload from JWT token to get the role
-        // The token has format: header.payload.signature
         final parts = token.split('.');
         if (parts.length != 3) {
           throw Exception('Invalid token format');
@@ -60,8 +67,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
         // Decode the base64 payload
         String payload = parts[1];
-        // Add padding if needed
-        payload = base64.normalize(payload);
+        payload = base64.normalize(payload); // Add padding if needed
         final decodedPayload = utf8.decode(base64.decode(payload));
         final payloadMap = json.decode(decodedPayload);
 
@@ -70,7 +76,6 @@ class _LoginScreenState extends State<LoginScreen> {
         print('User role from token: $userRole');
 
         // Navigate based on role from server
-        // Inside your login function, replace this switch statement:
         switch (userRole.toLowerCase()) {
           case 'admin':
             Navigator.pushReplacementNamed(context, '/admin');
@@ -86,8 +91,6 @@ class _LoginScreenState extends State<LoginScreen> {
       } else {
         // Handle error responses
         String errorMessage = 'Login failed';
-
-        // Try to extract error message from response
         try {
           errorMessage = response.body;
         } catch (e) {
@@ -95,10 +98,8 @@ class _LoginScreenState extends State<LoginScreen> {
         }
 
         // Show error message to user
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(errorMessage)));
-    }
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorMessage)));
+      }
     } catch (error) {
       // Handle connection errors
       print('Error during login: $error');
@@ -110,8 +111,21 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() {
         _isLoading = false;
       });
+    }
   }
-}
+
+  // Function to check stored token
+  Future<void> _checkStoredToken() async {
+    final _storage = FlutterSecureStorage();
+    String? token = await _storage.read(key: 'jwt_token');
+
+    if (token != null) {
+      print('Stored token: $token');
+    } else {
+      print('No token found in storage.');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -151,7 +165,6 @@ class _LoginScreenState extends State<LoginScreen> {
                               onPressed: () => Navigator.pop(context),
                             ),
                           ),
-                          
                           // Logo and Title
                           CircleAvatar(
                             radius: 40,
@@ -180,7 +193,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                           const SizedBox(height: 32),
-                          
                           // Email Field
                           Container(
                             decoration: BoxDecoration(
@@ -204,7 +216,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                 if (value == null || value.isEmpty) {
                                   return 'Please enter your email';
                                 }
-                                // Add email format validation
                                 if (!RegExp(
                                   r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
                                 ).hasMatch(value)) {
@@ -215,7 +226,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                           const SizedBox(height: 16),
-                          
                           // Password Field
                           Container(
                             decoration: BoxDecoration(
@@ -256,7 +266,6 @@ class _LoginScreenState extends State<LoginScreen> {
                               },
                             ),
                           ),
-                          
                           // Remember Me & Forgot Password
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 12.0),
@@ -293,7 +302,6 @@ class _LoginScreenState extends State<LoginScreen> {
                               ],
                             ),
                           ),
-                          
                           // Login Button
                           SizedBox(height: 16),
                           Container(
@@ -310,22 +318,20 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                                 elevation: 3,
                               ),
-                              child:
-                                  _isLoading
-                                      ? CircularProgressIndicator(
-                                        color: Colors.white,
-                                      )
-                                      : Text(
-                                        'LOGIN',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                          letterSpacing: 1.2,
-                                        ),
+                              child: _isLoading
+                                  ? CircularProgressIndicator(
+                                      color: Colors.white,
+                                    )
+                                  : Text(
+                                      'LOGIN',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 1.2,
                                       ),
+                                    ),
                             ),
                           ),
-                          
                           // Social Logins
                           SizedBox(height: 24),
                           Text(
@@ -343,7 +349,6 @@ class _LoginScreenState extends State<LoginScreen> {
                               _buildSocialButton(Icons.apple, Colors.black),
                             ],
                           ),
-                          
                           // Register Link
                           SizedBox(height: 24),
                           Row(
@@ -381,7 +386,7 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
-  
+
   Widget _buildSocialButton(IconData icon, Color color) {
     return Container(
       width: 50,
@@ -407,4 +412,3 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
-
