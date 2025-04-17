@@ -17,7 +17,7 @@ class ProductCard extends StatelessWidget {
   }) : super(key: key);
 
   @override
-  Widget build(BuildContext context){
+  Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -132,7 +132,7 @@ class CategorySelector extends StatelessWidget {
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: categories.length,
-        padding: EdgeInsets.symmetric(horizontal: 16),
+        padding: EdgeInsets.symmetric(horizontal: 20),
         itemBuilder: (context, index) {
           final isSelected = index == 0;
           return Container(
@@ -170,7 +170,7 @@ class SearchBar extends StatelessWidget {
           hintText: "Tafuta bidhaa...",
           prefixIcon: Icon(Icons.search, color: Colors.green.shade700),
           border: InputBorder.none,
-          contentPadding: EdgeInsets.symmetric(vertical: 15),
+          contentPadding: EdgeInsets.symmetric(vertical: 8),
         ),
       ),
     );
@@ -228,10 +228,10 @@ class ProductListScreen extends StatelessWidget {
           style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
         ),
         actions: [
-          // IconButton(
-          //   icon: Icon(Icons.filter_list, color: Colors.white),
-          //   onPressed: () {},
-          // ),
+          IconButton(
+            icon: Icon(Icons.notification_add, color: Colors.white),
+            onPressed: () {},
+          ),
           IconButton(
             icon: Icon(Icons.login_outlined, color: Colors.white),
             onPressed: () {
@@ -250,10 +250,10 @@ class ProductListScreen extends StatelessWidget {
         children: [
           // Header gradient section
           Container(
-            height: 120,
+            height: 135,
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [Colors.green.shade700, Colors.green.shade500],
+                colors: [Colors.green.shade700, Colors.green.shade700],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
               ),

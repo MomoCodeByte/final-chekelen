@@ -172,3 +172,31 @@ CREATE TABLE settings (
 );
 
 
+api
+http://localhost:3000/api/transactions  =>create transactions
+http://localhost:3000/api/transactions  => get all transactions
+ http://localhost:3000/api/transactions/1 => get transactions by id
+ http://localhost:3000/api/transactions/1 => update transactions
+ http://localhost:3000/api/transactions/1 => delete transactions
+
+ http://localhost:3000/api/settings  =>create settings
+http://localhost:3000/api/settings  => get all settings
+ http://localhost:3000/api/settings/1 => get settings by id
+ http://localhost:3000/api/settings/1 => update settings
+ http://localhost:3000/api/settings/1 => delete settings
+
+ reports
+
+ http://localhost:3000/api/ reports  =>create  reports
+http://localhost:3000/api/ reports  => get all  reports
+ http://localhost:3000/api/reports/1 => get  reports by id
+ http://localhost:3000/api/reports/1 => update  reports
+ http://localhost:3000/api/reports/1 => delete  reports
+
+ chat
+
+ http://localhost:3000/api/chat  =>create  chat 
+ http://localhost:3000/api/chat  => get all  chat
+ http://localhost:3000/api/chat/1 => get  chat by id
+ http://localhost:3000/api/chat/1 => update  chat
+ http://localhost:3000/api/chat/1 => delete  chat

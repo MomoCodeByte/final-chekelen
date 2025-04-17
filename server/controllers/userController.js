@@ -39,8 +39,8 @@ exports.loginUser = async (req, res) => {
         if (!match) {
             return res.status(401).send('email au password sio sahii');
         }
-        console.log("nasubilia kujenerate token..")
-        console.log(user.user_id);
+        // console.log("nasubilia kujenerate token..")
+        // console.log(user.user_id);
 
         const token = jwt.sign({ id: user.user_id, role: user.role },JWT_SECRET, { expiresIn: '1h' });
         res.json({ token });

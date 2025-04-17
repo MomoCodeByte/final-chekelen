@@ -98,7 +98,9 @@ class _LoginScreenState extends State<LoginScreen> {
         }
 
         // Show error message to user
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorMessage)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(errorMessage)));
       }
     } catch (error) {
       // Handle connection errors
@@ -161,7 +163,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           Align(
                             alignment: Alignment.topLeft,
                             child: IconButton(
-                              icon: Icon(Icons.arrow_back, color: Color(0xFF43A047)),
+                              icon: Icon(
+                                Icons.arrow_back,
+                                color: Color(0xFF43A047),
+                              ),
                               onPressed: () => Navigator.pop(context),
                             ),
                           ),
@@ -177,7 +182,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            'Welcome to Agrify',
+                            'Welcome to Checkereni Market',
                             style: TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
@@ -205,7 +210,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                 labelText: 'Email',
                                 labelStyle: TextStyle(color: Color(0xFF43A047)),
                                 border: InputBorder.none,
-                                contentPadding: EdgeInsets.symmetric(horizontal: 16),
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                ),
                                 prefixIcon: Icon(
                                   Icons.email_outlined,
                                   color: Color(0xFF43A047),
@@ -238,7 +245,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                 labelText: 'Password',
                                 labelStyle: TextStyle(color: Color(0xFF43A047)),
                                 border: InputBorder.none,
-                                contentPadding: EdgeInsets.symmetric(horizontal: 16),
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                ),
                                 prefixIcon: Icon(
                                   Icons.lock_outline,
                                   color: Color(0xFF43A047),
@@ -282,7 +291,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                         onChanged: (value) {},
                                         activeColor: Color(0xFF43A047),
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(4),
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -294,9 +305,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   onPressed: () {},
                                   child: Text(
                                     'Forgot Password?',
-                                    style: TextStyle(
-                                      color: Color(0xFF43A047),
-                                    ),
+                                    style: TextStyle(color: Color(0xFF43A047)),
                                   ),
                                 ),
                               ],
@@ -318,18 +327,19 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                                 elevation: 3,
                               ),
-                              child: _isLoading
-                                  ? CircularProgressIndicator(
-                                      color: Colors.white,
-                                    )
-                                  : Text(
-                                      'LOGIN',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                        letterSpacing: 1.2,
+                              child:
+                                  _isLoading
+                                      ? CircularProgressIndicator(
+                                        color: Colors.white,
+                                      )
+                                      : Text(
+                                        'LOGIN',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 1.2,
+                                        ),
                                       ),
-                                    ),
                             ),
                           ),
                           // Social Logins
@@ -344,7 +354,10 @@ class _LoginScreenState extends State<LoginScreen> {
                             children: [
                               _buildSocialButton(Icons.facebook, Colors.blue),
                               SizedBox(width: 16),
-                              _buildSocialButton(Icons.g_mobiledata, Colors.red),
+                              _buildSocialButton(
+                                Icons.g_mobiledata,
+                                Colors.red,
+                              ),
                               SizedBox(width: 16),
                               _buildSocialButton(Icons.apple, Colors.black),
                             ],
@@ -360,7 +373,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (context) => RegistrationScreen(),
+                                      builder:
+                                          (context) => RegistrationScreen(),
                                     ),
                                   );
                                 },
@@ -404,11 +418,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ],
       ),
-      child: Icon(
-        icon,
-        color: color,
-        size: 30,
-      ),
+      child: Icon(icon, color: color, size: 30),
     );
   }
 }

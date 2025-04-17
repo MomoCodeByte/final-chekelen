@@ -23,6 +23,7 @@ app.use("/api/transactions", transactionRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/settings", settingRoutes);
 
+
 const PORT = process.env.PORT || 3000;
 // const HOST = process.env.HOST || "192.168.1.103"; // Default to '0.0.0.0' to allow external access
 
