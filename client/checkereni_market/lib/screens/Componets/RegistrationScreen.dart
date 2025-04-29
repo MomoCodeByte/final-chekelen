@@ -4,6 +4,8 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 class RegistrationScreen extends StatefulWidget {
+  const RegistrationScreen({super.key});
+
   @override
   _RegistrationScreenState createState() => _RegistrationScreenState();
 }
@@ -395,7 +397,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                           ),
                           // Register Button
                           SizedBox(height: 8),
-                          Container(
+                          SizedBox(
                             width: double.infinity,
                             height: 55,
                             child: ElevatedButton(

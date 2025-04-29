@@ -5,6 +5,8 @@ import 'RegistrationScreen.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
+
   @override
   _LoginScreenState createState() => _LoginScreenState();
 }
@@ -48,9 +50,9 @@ class _LoginScreenState extends State<LoginScreen> {
         final token = responseData['token'];
 
         // Store the token securely
-        final _storage = FlutterSecureStorage();
+        final storage = FlutterSecureStorage();
         try {
-          await _storage.write(key: 'jwt_token', value: token);
+          await storage.write(key: 'jwt_token', value: token);
           print('Token stored: $token');
         } catch (e) {
           print('Error storing token: $e');
@@ -118,8 +120,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   // Function to check stored token
   Future<void> _checkStoredToken() async {
-    final _storage = FlutterSecureStorage();
-    String? token = await _storage.read(key: 'jwt_token');
+    final storage = FlutterSecureStorage();
+    String? token = await storage.read(key: 'jwt_token');
 
     if (token != null) {
       print('Stored token: $token');
@@ -313,7 +315,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           // Login Button
                           SizedBox(height: 16),
-                          Container(
+                          SizedBox(
                             width: double.infinity,
                             height: 55,
                             child: ElevatedButton(

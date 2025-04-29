@@ -31,7 +31,7 @@ class PlantIcon extends StatelessWidget {
   final double size;
   final Color color;
 
-  const PlantIcon({Key? key, required this.size, required this.color}) : super(key: key);
+  const PlantIcon({super.key, required this.size, required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -95,7 +95,7 @@ class PlantPainter extends CustomPainter {
 class BouncingPlant extends StatefulWidget {
   final double size;
   
-  const BouncingPlant({Key? key, required this.size}) : super(key: key);
+  const BouncingPlant({super.key, required this.size});
   
   @override
   _BouncingPlantState createState() => _BouncingPlantState();
@@ -145,7 +145,7 @@ class RotatingFruit extends StatefulWidget {
   final double size;
   final Color color;
   
-  const RotatingFruit({Key? key, required this.size, required this.color}) : super(key: key);
+  const RotatingFruit({super.key, required this.size, required this.color});
   
   @override
   _RotatingFruitState createState() => _RotatingFruitState();
@@ -191,6 +191,8 @@ class _RotatingFruitState extends State<RotatingFruit> with SingleTickerProvider
 }
 
 class WelcomeScreen extends StatefulWidget {
+  const WelcomeScreen({super.key});
+
   @override
   _WelcomeScreenState createState() => _WelcomeScreenState();
 }

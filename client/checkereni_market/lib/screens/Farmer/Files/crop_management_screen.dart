@@ -395,14 +395,13 @@ class _CropManagementScreenState extends State<CropManagementScreen>
     final bool isOrganic = crop['organic'] == 1;
     final bool isFresh = crop['fresh'] == 1;
 
+      
     return Container(
-          margin: const EdgeInsets.only(
-            bottom: 12,
-          ), // Adjust margin for spacing
+          margin: const EdgeInsets.only(bottom: 16),
           child: Card(
-            elevation: 2, // Slightly reduce elevation for a cleaner look
+            elevation: 3,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12), // Adjust border radius
+              borderRadius: BorderRadius.circular(16),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -412,19 +411,18 @@ class _CropManagementScreenState extends State<CropManagementScreen>
                   children: [
                     ClipRRect(
                       borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(12), // Match card border radius
+                        top: Radius.circular(16),
                       ),
                       child:
                           crop['image_path'] != null
                               ? CachedNetworkImage(
                                 imageUrl: '$baseUrl/${crop['image_path']}',
-                                height:
-                                    80, // Adjust image height for medium size
+                                height: 180,
                                 width: double.infinity,
                                 fit: BoxFit.cover,
                                 placeholder:
                                     (context, url) => Container(
-                                      height: 80,
+                                      height: 180,
                                       color: Colors.grey[200],
                                       child: const Center(
                                         child: CircularProgressIndicator(),
@@ -432,25 +430,25 @@ class _CropManagementScreenState extends State<CropManagementScreen>
                                     ),
                                 errorWidget:
                                     (context, url, error) => Container(
-                                      height: 80,
+                                      height: 180,
                                       color: Colors.grey[200],
                                       child: const Center(
                                         child: Icon(
                                           Icons.error_outline,
-                                          size: 40,
+                                          size: 50,
                                           color: Colors.grey,
                                         ),
                                       ),
                                     ),
                               )
                               : Container(
-                                height: 80,
+                                height: 180,
                                 width: double.infinity,
                                 color: Colors.grey[200],
                                 child: const Center(
                                   child: Icon(
                                     Icons.image,
-                                    size: 40,
+                                    size: 50,
                                     color: Colors.grey,
                                   ),
                                 ),
@@ -464,14 +462,14 @@ class _CropManagementScreenState extends State<CropManagementScreen>
                           decoration: BoxDecoration(
                             color: Colors.black.withOpacity(0.5),
                             borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(12),
+                              top: Radius.circular(16),
                             ),
                           ),
                           child: Center(
                             child: Container(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
+                                horizontal: 16,
+                                vertical: 8,
                               ),
                               decoration: BoxDecoration(
                                 color: Colors.red.withOpacity(0.8),
@@ -482,7 +480,7 @@ class _CropManagementScreenState extends State<CropManagementScreen>
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 14,
+                                  fontSize: 16,
                                 ),
                               ),
                             ),
@@ -494,9 +492,7 @@ class _CropManagementScreenState extends State<CropManagementScreen>
 
                 // Crop details
                 Padding(
-                  padding: const EdgeInsets.all(
-                    12,
-                  ), // Adjust padding for medium size
+                  padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -507,11 +503,10 @@ class _CropManagementScreenState extends State<CropManagementScreen>
                             child: Text(
                               crop['name'],
                               style: const TextStyle(
-                                fontSize:
-                                    18, // Adjust font size for medium size
+                                fontSize: 20,
                                 fontWeight: FontWeight.bold,
                               ),
-                              maxLines: 1,
+                              maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -533,22 +528,26 @@ class _CropManagementScreenState extends State<CropManagementScreen>
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 12),
 
                       // Description
                       if (crop['description'] != null &&
                           crop['description'].toString().isNotEmpty)
-                        Text(
-                          crop['description'],
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[800],
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[100],
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.grey[300]!),
                           ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                          child: Text(
+                            crop['description'] ?? 'No description',
+                            style: TextStyle(color: Colors.grey[800]),
+                          ),
                         ),
 
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
 
                       // Action buttons
                       Row(
@@ -575,7 +574,7 @@ class _CropManagementScreenState extends State<CropManagementScreen>
                               _showForm(context);
                             },
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 12),
                           OutlinedButton.icon(
                             icon: const Icon(
                               Icons.delete_outline,

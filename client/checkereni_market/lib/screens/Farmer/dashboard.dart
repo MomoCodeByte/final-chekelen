@@ -1,468 +1,290 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_vector_icons/flutter_vector_icons.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import './Files/chat_screen.dart';
+import './Files/crop_management_screen.dart';
+import './Files/order_management_screen.dart';
+import './Files/reports_screen.dart';
+import './Files/transaction_screen.dart';
+import './Files/dashboard_screen.dart';
 
-class FarmerDashboard extends StatelessWidget {
+class FarmerDashboard extends StatefulWidget {
+  const FarmerDashboard({super.key});
+
+  @override
+  _FarmerDashboardState createState() => _FarmerDashboardState();
+}
+
+class _FarmerDashboardState extends State<FarmerDashboard> {
+  String activeTab = 'dashboard';
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  DateTime? _lastBackPressTime;
+
+  final List<Map<String, dynamic>> menuItems = [
+    {'id': 'dashboard', 'label': 'Dashboard', 'icon': Feather.home},
+    {'id': 'crops', 'label': 'Manage Crops', 'icon': Feather.sun},
+    {'id': 'orders', 'label': 'View Orders', 'icon': Feather.shopping_cart},
+    {
+      'id': 'transactions',
+      'label': 'Transactions',
+      'icon': Feather.credit_card,
+    },
+    {
+      'id': 'communications',
+      'label': 'Live Chat',
+      'icon': Feather.message_circle,
+    },
+    {'id': 'reports', 'label': 'Reports', 'icon': Feather.file_text},
+    {'id': 'logout', 'label': 'Logout', 'icon': Feather.log_out},
+  ];
+
+  Future<bool> _confirmExit() async {
+    final now = DateTime.now();
+    if (_lastBackPressTime == null ||
+        now.difference(_lastBackPressTime!) > const Duration(seconds: 2)) {
+      _lastBackPressTime = now;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Press back again to logout')),
+      );
+      return false;
+    }
+    return true;
+  }
+
+  Future<void> _performLogout() async {
+    try {
+      debugPrint('Deleting farmer token...');
+      await _storage.delete(key: 'jwt_token');
+      debugPrint('Farmer token deleted');
+
+      if (mounted) {
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil('/welcome', (Route<dynamic> route) => false);
+      }
+    } catch (e) {
+      debugPrint('Farmer logout error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Logout failed: $e')));
+      }
+    }
+  }
+
+  void _navigateToScreen(String tabId) async {
+    // Close drawer on mobile after selection
+    if (_scaffoldKey.currentState?.isDrawerOpen == true) {
+      Navigator.of(context).pop();
+    }
+
+    if (tabId == 'logout') {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder:
+            (context) => AlertDialog(
+              title: const Text('Confirm Logout'),
+              content: const Text('Are you sure you want to logout?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('Logout'),
+                ),
+              ],
+            ),
+      );
+      if (confirm == true) await _performLogout();
+    } else {
+      setState(() => activeTab = tabId);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Farmer Dashboard'),
-        backgroundColor: Color(0xFF43A047),
+    bool isSmallScreen = MediaQuery.of(context).size.width < 768;
 
+    return WillPopScope(
+      onWillPop: () async {
+        // Handle drawer first
+        if (_scaffoldKey.currentState?.isDrawerOpen ?? false) {
+          Navigator.of(context).pop();
+          return false;
+        }
+
+        // Then handle back button
+        if (await _confirmExit()) {
+          await _performLogout();
+          return true;
+        }
+        return false;
+      },
+      child: Scaffold(
+        key: _scaffoldKey,
+        drawer: isSmallScreen ? _buildDrawer(context) : null,
+        body:
+            isSmallScreen
+                ? _getScreen()
+                : Row(
+                  children: [
+                    _buildSidebar(context),
+                    Expanded(child: _getScreen()),
+                  ],
+                ),
+        bottomNavigationBar: isSmallScreen ? _buildBottomNav() : null,
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              'Welcome to the Farmer Dashboard!',
-              style: TextStyle(fontSize: 24),
+    );
+  }
+
+  Widget? _buildBottomNav() {
+    return BottomNavigationBar(
+      backgroundColor: Colors.green[800],
+      selectedItemColor: Colors.white,
+      unselectedItemColor: Colors.white.withOpacity(0.6),
+      currentIndex: _getNavIndex(),
+      onTap: (index) => _navigateToScreen(menuItems[index]['id']),
+      items:
+          menuItems
+              .take(5)
+              .map(
+                (item) => BottomNavigationBarItem(
+                  icon: Icon(item['icon']),
+                  label: item['label'],
+                  backgroundColor: Colors.green[800],
+                ),
+              )
+              .toList(),
+    );
+  }
+
+  int _getNavIndex() {
+    final index = menuItems.indexWhere((item) => item['id'] == activeTab);
+    return (index >= 0 && index < 5) ? index : 0;
+  }
+
+  Widget _getScreen() {
+    switch (activeTab) {
+      case 'crops':
+        return const CropManagementScreen();
+      case 'orders':
+        return const OrderManagementScreen();
+      case 'transactions':
+        return const TransactionScreen();
+      case 'communications':
+        return const ChatScreen();
+      case 'reports':
+        return const ReportsScreen();
+      default:
+        return const DashboardScreen();
+    }
+  }
+
+  Widget _buildSidebar(BuildContext context) {
+    return Container(
+      width: 260,
+      color: Colors.green[800],
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            color: Colors.green[900],
+            child: Row(
+              children: [
+                Icon(Feather.shield, color: Colors.white, size: 32),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Farmer Panel',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
+                      ),
+                      Text(
+                        'Chekereni Market Panel',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.7),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                // Implement logout logic here
-                Navigator.pop(context); // Navigate back to login
+          ),
+          const SizedBox(height: 40),
+          Expanded(
+            child: ListView.builder(
+              itemCount: menuItems.length,
+              itemBuilder: (context, index) {
+                final item = menuItems[index];
+                final isActive = activeTab == item['id'];
+                return ListTile(
+                  leading: Icon(item['icon'], color: Colors.white),
+                  title: Text(
+                    item['label'],
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight:
+                          isActive ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                  tileColor: isActive ? Colors.green[700] : Colors.transparent,
+                  onTap: () => _navigateToScreen(item['id']),
+                );
               },
-              child: Text('Log Out'),
             ),
-          ],
-        ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDrawer(BuildContext context) {
+    return Drawer(
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          DrawerHeader(
+            decoration: BoxDecoration(color: Colors.green[800]!),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                CircleAvatar(
+                  backgroundColor: Colors.white,
+                  radius: 30,
+                  child: Icon(Feather.user, color: Colors.green[800], size: 30),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Farmer Dashboard',
+                  style: TextStyle(color: Colors.white, fontSize: 20),
+                ),
+              ],
+            ),
+          ),
+          ...menuItems.map(
+            (item) => ListTile(
+              leading: Icon(item['icon']),
+              title: Text(item['label']),
+              onTap: () {
+                Navigator.pop(context);
+                _navigateToScreen(item['id']);
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
 }
-
-
-
-
-// class SubAdminDashboard extends StatefulWidget {
-//   const SubAdminDashboard({super.key});
-//   @override
-//   State<SubAdminDashboard> createState() => _SubAdminDashboardState();
-// }
-
-// class _SubAdminDashboardState extends State<SubAdminDashboard> {
-  // String activeTab = 'dashboard';
-  // bool isMobileMenuOpen = false;
-  
-  // // Reduced menu items for subadmin access level
-  // final List<Map<String, dynamic>> menuItems = [
-  //   {'id': 'dashboard', 'label': 'Dashboard', 'icon': Feather.bar_chart_2},
-  //   {'id': 'users', 'label': 'Users', 'icon': Feather.users},
-  //   {'id': 'crops', 'label': 'Crops', 'icon': Feather.sun},
-  //   {'id': 'orders', 'label': 'Orders', 'icon': Feather.shopping_cart},
-  //   {'id': 'reports', 'label': 'Reports', 'icon': Feather.file_text},
-  // ];
-
-  // // Simplified stats for subadmin view
-  // final List<Map<String, String>> stats = [
-  //   {'label': 'Active Users', 'value': '876'},
-  //   {'label': 'Current Crops', 'value': '34'},
-  // ];
-
-  // // Recent activities for subadmin to monitor
-  // final List<Map<String, dynamic>> recentActivities = [
-  //   {
-  //     'id': 1,
-  //     'user': 'John Doe',
-  //     'action': 'Placed an order',
-  //     'time': '2 hours ago',
-  //     'type': 'order'
-  //   },
-  //   {
-  //     'id': 2,
-  //     'user': 'Jane Smith',
-  //     'action': 'Updated crop status',
-  //     'time': '4 hours ago',
-  //     'type': 'crop'
-  //   },
-  //   {
-  //     'id': 3,
-  //     'user': 'Mike Johnson',
-  //     'action': 'Submitted support ticket',
-  //     'time': 'Yesterday',
-  //     'type': 'support'
-  //   },
-  // ];
-
-  // @override
-  // Widget build(BuildContext context) {
-  //   final isDesktop = MediaQuery.of(context).size.width >= 1024;
-    
-  //   return Scaffold(
-  //     backgroundColor: const Color(0xFFF0F7F2), // lighter green background
-  //     body: Row(
-  //       children: [
-  //         // Sidebar with reduced width
-  //         if (isDesktop || isMobileMenuOpen)
-  //           Container(
-  //             width: 220, // slightly narrower than admin dashboard
-  //             color: const Color(0xFF166534), // dark green
-  //             child: Column(
-  //               children: [
-  //                 Padding(
-  //                   padding: const EdgeInsets.all(16),
-  //                   child: Row(
-  //                     children: [
-  //                       Text(
-  //                         'SubAdmin',
-  //                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
-  //                           color: Colors.white,
-  //                           fontWeight: FontWeight.bold,
-  //                         ),
-  //                       ),
-  //                     ],
-  //                   ),
-  //                 ),
-  //                 Expanded(
-  //                   child: ListView(
-  //                     children: menuItems.map((item) => _buildMenuItem(item)).toList(),
-  //                   ),
-  //                 ),
-  //               ],
-  //             ),
-  //           ),
-          
-  //         // Main Content Area
-  //         Expanded(
-  //           child: Column(
-  //             children: [
-  //               // Top Bar - simplified
-  //               Container(
-  //                 padding: const EdgeInsets.all(12),
-  //                 decoration: BoxDecoration(
-  //                   color: Colors.white,
-  //                   boxShadow: [
-  //                     BoxShadow(
-  //                       color: Colors.black.withOpacity(0.05),
-  //                       blurRadius: 2,
-  //                     ),
-  //                   ],
-  //                 ),
-  //                 child: Row(
-  //                   children: [
-  //                     if (!isDesktop)
-  //                       IconButton(
-  //                         icon: Icon(
-  //                           isMobileMenuOpen ? Feather.x : Feather.menu,
-  //                         ),
-  //                         onPressed: () {
-  //                           setState(() {
-  //                             isMobileMenuOpen = !isMobileMenuOpen;
-  //                           });
-  //                         },
-  //                       ),
-  //                     const Expanded(
-  //                       child: Text(
-  //                         'SubAdmin Panel',
-  //                         style: TextStyle(
-  //                           fontSize: 18,
-  //                           fontWeight: FontWeight.w600,
-  //                         ),
-  //                       ),
-  //                     ),
-  //                     CircleAvatar(
-  //                       backgroundColor: const Color(0xFF166534),
-  //                       radius: 16,
-  //                       child: const Text(
-  //                         'SA',
-  //                         style: TextStyle(color: Colors.white, fontSize: 12),
-  //                       ),
-  //                     ),
-  //                   ],
-  //                 ),
-  //               ),
-                
-  //               // Dashboard Content - streamlined
-  //               Expanded(
-  //                 child: SingleChildScrollView(
-  //                   padding: const EdgeInsets.all(16),
-  //                   child: Column(
-  //                     crossAxisAlignment: CrossAxisAlignment.start,
-  //                     children: [
-  //                       // Welcome message
-  //                       Container(
-  //                         padding: const EdgeInsets.all(16),
-  //                         decoration: BoxDecoration(
-  //                           color: Colors.white,
-  //                           borderRadius: BorderRadius.circular(8),
-  //                           boxShadow: [
-  //                             BoxShadow(
-  //                               color: Colors.black.withOpacity(0.05),
-  //                               blurRadius: 2,
-  //                             ),
-  //                           ],
-  //                         ),
-  //                         child: const Row(
-  //                           children: [
-  //                             Icon(Feather.alert_circle, color: Color(0xFF166534)),
-  //                             SizedBox(width: 12),
-  //                             Expanded(
-  //                               child: Text(
-  //                                 'Welcome to the SubAdmin Dashboard. You have limited admin privileges.',
-  //                                 style: TextStyle(fontSize: 14),
-  //                               ),
-  //                             ),
-  //                           ],
-  //                         ),
-  //                       ),
-                        
-  //                       const SizedBox(height: 16),
-                        
-  //                       // Stats Row - simplified to a row instead of grid
-  //                       Row(
-  //                         children: stats.map((stat) => Expanded(
-  //                           child: Padding(
-  //                             padding: const EdgeInsets.symmetric(horizontal: 8),
-  //                             child: _buildStatCard(stat),
-  //                           ),
-  //                         )).toList(),
-  //                       ),
-                        
-  //                       const SizedBox(height: 16),
-                        
-  //                       // Recent Activities
-  //                       Container(
-  //                         padding: const EdgeInsets.all(16),
-  //                         decoration: BoxDecoration(
-  //                           color: Colors.white,
-  //                           borderRadius: BorderRadius.circular(8),
-  //                           boxShadow: [
-  //                             BoxShadow(
-  //                               color: Colors.black.withOpacity(0.05),
-  //                               blurRadius: 2,
-  //                             ),
-  //                           ],
-  //                         ),
-  //                         child: Column(
-  //                           crossAxisAlignment: CrossAxisAlignment.start,
-  //                           children: [
-  //                             const Text(
-  //                               'Recent Activities',
-  //                               style: TextStyle(
-  //                                 fontSize: 16,
-  //                                 fontWeight: FontWeight.w600,
-  //                               ),
-  //                             ),
-  //                             const SizedBox(height: 12),
-  //                             ...recentActivities.map((activity) => _buildActivityItem(activity)),
-  //                           ],
-  //                         ),
-  //                       ),
-                        
-  //                       const SizedBox(height: 16),
-                        
-  //                       // Quick Actions
-  //                       Container(
-  //                         padding: const EdgeInsets.all(16),
-  //                         decoration: BoxDecoration(
-  //                           color: Colors.white,
-  //                           borderRadius: BorderRadius.circular(8),
-  //                           boxShadow: [
-  //                             BoxShadow(
-  //                               color: Colors.black.withOpacity(0.05),
-  //                               blurRadius: 2,
-  //                             ),
-  //                           ],
-  //                         ),
-  //                         child: Column(
-  //                           crossAxisAlignment: CrossAxisAlignment.start,
-  //                           children: [
-  //                             const Text(
-  //                               'Quick Actions',
-  //                               style: TextStyle(
-  //                                 fontSize: 16,
-  //                                 fontWeight: FontWeight.w600,
-  //                               ),
-  //                             ),
-  //                             const SizedBox(height: 12),
-  //                             Row(
-  //                               mainAxisAlignment: MainAxisAlignment.spaceAround,
-  //                               children: [
-  //                                 _buildQuickAction('View Users', Feather.users, () {}),
-  //                                 _buildQuickAction('Crop Status', Feather.sun, () {}),
-  //                                 _buildQuickAction('Generate Report', Feather.file_text, () {}),
-  //                               ],
-  //                             ),
-  //                           ],
-  //                         ),
-  //                       ),
-  //                     ],
-  //                   ),
-  //                 ),
-  //               ),
-  //             ],
-  //           ),
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
-
-  // Widget _buildMenuItem(Map<String, dynamic> item) {
-  //   final isActive = activeTab == item['id'];
-  //   return Material(
-  //     color: Colors.transparent,
-  //     child: InkWell(
-  //       onTap: () {
-  //         setState(() {
-  //           activeTab = item['id'];
-  //           if (MediaQuery.of(context).size.width < 1024) {
-  //             isMobileMenuOpen = false;
-  //           }
-  //         });
-  //       },
-  //       child: Container(
-  //         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-  //         color: isActive ? Colors.white.withOpacity(0.1) : Colors.transparent,
-  //         child: Row(
-  //           children: [
-  //             Icon(
-  //               item['icon'],
-  //               color: Colors.white,
-  //               size: 18,
-  //             ),
-  //             const SizedBox(width: 8),
-  //             Text(
-  //               item['label'],
-  //               style: const TextStyle(
-  //                 color: Colors.white,
-  //                 fontSize: 14,
-  //               ),
-  //             ),
-  //           ],
-  //         ),
-  //       ),
-  //     ),
-  //   );
-  // }
-
-  // Widget _buildStatCard(Map<String, String> stat) {
-  //   return Container(
-  //     padding: const EdgeInsets.all(16),
-  //     decoration: BoxDecoration(
-  //       color: Colors.white,
-  //       borderRadius: BorderRadius.circular(8),
-  //       boxShadow: [
-  //         BoxShadow(
-  //           color: Colors.black.withOpacity(0.1),
-  //           blurRadius: 2,
-  //         ),
-  //       ],
-  //     ),
-  //     child: Column(
-  //       crossAxisAlignment: CrossAxisAlignment.start,
-  //       children: [
-  //         Text(
-  //           stat['label'] ?? '',
-  //           style: TextStyle(
-  //             color: Colors.grey[600],
-  //             fontSize: 12,
-  //             fontWeight: FontWeight.w500,
-  //           ),
-  //         ),
-  //         const SizedBox(height: 6),
-  //         Text(
-  //           stat['value'] ?? '',
-  //           style: const TextStyle(
-  //             fontSize: 20,
-  //             fontWeight: FontWeight.bold,
-  //           ),
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
-
-  // Widget _buildActivityItem(Map<String, dynamic> activity) {
-  //   IconData activityIcon;
-  //   Color iconColor;
-    
-  //   switch (activity['type']) {
-  //     case 'order':
-  //       activityIcon = Feather.shopping_cart;
-  //       iconColor = Colors.blue;
-  //       break;
-  //     case 'crop':
-  //       activityIcon = Feather.sun;
-  //       iconColor = Colors.green;
-  //       break;
-  //     case 'support':
-  //       activityIcon = Feather.help_circle;
-  //       iconColor = Colors.orange;
-  //       break;
-  //     default:
-  //       activityIcon = Feather.activity;
-  //       iconColor = Colors.grey;
-  //   }
-    
-  //   return Padding(
-  //     padding: const EdgeInsets.symmetric(vertical: 8),
-  //     child: Row(
-  //       children: [
-  //         Container(
-  //           padding: const EdgeInsets.all(8),
-  //           decoration: BoxDecoration(
-  //             color: iconColor.withOpacity(0.1),
-  //             borderRadius: BorderRadius.circular(8),
-  //           ),
-  //           child: Icon(activityIcon, color: iconColor, size: 16),
-  //         ),
-  //         const SizedBox(width: 12),
-  //         Expanded(
-  //           child: Column(
-  //             crossAxisAlignment: CrossAxisAlignment.start,
-  //             children: [
-  //               Text(
-  //                 activity['user'] ?? '',
-  //                 style: const TextStyle(
-  //                   fontWeight: FontWeight.w500,
-  //                   fontSize: 14,
-  //                 ),
-  //               ),
-  //               Text(
-  //                 activity['action'] ?? '',
-  //                 style: TextStyle(
-  //                   color: Colors.grey[600],
-  //                   fontSize: 12,
-  //                 ),
-  //               ),
-  //             ],
-  //           ),
-  //         ),
-  //         Text(
-  //           activity['time'] ?? '',
-  //           style: TextStyle(
-  //             color: Colors.grey[500],
-  //             fontSize: 12,
-  //           ),
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
-
-  // Widget _buildQuickAction(String label, IconData icon, VoidCallback onTap) {
-  //   return InkWell(
-  //     onTap: onTap,
-  //     child: Column(
-  //       children: [
-  //         Container(
-  //           padding: const EdgeInsets.all(12),
-  //           decoration: BoxDecoration(
-  //             color: const Color(0xFF166534).withOpacity(0.1),
-  //             borderRadius: BorderRadius.circular(8),
-  //           ),
-  //           child: Icon(icon, color: const Color(0xFF166534), size: 20),
-  //         ),
-  //         const SizedBox(height: 8),
-  //         Text(
-  //           label,
-  //           style: const TextStyle(fontSize: 12),
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
-// }

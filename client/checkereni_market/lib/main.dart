@@ -14,6 +14,8 @@ void main() {
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -47,6 +49,8 @@ class MyApp extends StatelessWidget {
 
 class SplashScreen extends StatelessWidget {
   final _storage = FlutterSecureStorage();
+
+  SplashScreen({super.key});
 
   Future<void> _checkToken(BuildContext context) async {
     String? token = await _storage.read(key: 'jwt_token');

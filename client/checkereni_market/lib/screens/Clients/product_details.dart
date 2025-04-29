@@ -7,7 +7,7 @@ class ProductDetailsScreen extends StatelessWidget {
   final String productName;
   final String price;
 
-  ProductDetailsScreen({required this.productName, required this.price});
+  const ProductDetailsScreen({super.key, required this.productName, required this.price});
 
   @override
   Widget build(BuildContext context) {

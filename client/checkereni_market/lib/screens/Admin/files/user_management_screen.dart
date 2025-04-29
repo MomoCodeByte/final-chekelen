@@ -6,7 +6,7 @@ import 'package:flutter_animate/flutter_animate.dart'; // For animations
 import 'package:flutter_slidable/flutter_slidable.dart'; // For swipe actions
 
 class UserManagementScreen extends StatefulWidget {
-  const UserManagementScreen({Key? key}) : super(key: key);
+  const UserManagementScreen({super.key});
 
   @override
   _UserManagementScreenState createState() => _UserManagementScreenState();
@@ -237,27 +237,27 @@ class _UserManagementScreenState extends State<UserManagementScreen>
   Future<void> _updateUser(String userId) async {
     if (!_formKey.currentState!.validate()) return;
 
+    if (!roles.contains(_selectedRole)) {
+      _showError('Invalid role selected');
+      return;
+    }
+
     try {
-      // Start loading indicator
       setState(() => _isLoading = true);
 
-      // Get JWT token for authentication
       final token = await _storage.read(key: 'jwt_token');
 
-      // Prepare update data (include password only if provided)
       final Map<String, dynamic> updateData = {
         'username': _usernameController.text.trim(),
-        'role': _selectedRole,
+        'role': _selectedRole, // Ensure role is valid
         'email': _emailController.text.trim(),
         'phone': _phoneController.text.trim(),
       };
 
-      // Only include password if it was changed
       if (_passwordController.text.isNotEmpty) {
         updateData['password'] = _passwordController.text;
       }
 
-      // Make API request to update user
       final response = await http.put(
         Uri.parse('http://localhost:3000/api/users/$userId'),
         headers: {
@@ -1480,13 +1480,11 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                       Padding(
                                         padding: const EdgeInsets.only(top: 8),
                                         child: Text(
-                                          'Filtered by: ' +
-                                              (_searchController.text.isNotEmpty
+                                          'Filtered by: ${_searchController.text.isNotEmpty
                                                   ? 'Search '
-                                                  : '') +
-                                              (_filterRole != null
+                                                  : ''}${_filterRole != null
                                                   ? 'Role (${'$_filterRole'})'
-                                                  : ''),
+                                                  : ''}',
                                           style: TextStyle(
                                             color: primaryGreen,
                                             fontSize: 13,

@@ -9,12 +9,12 @@ class ProductCard extends StatelessWidget {
   final VoidCallback onTap;
 
   const ProductCard({
-    Key? key,
+    super.key,
     required this.name,
     required this.price,
     required this.image,
     required this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -123,11 +123,13 @@ class ProductCard extends StatelessWidget {
 }
 
 class CategorySelector extends StatelessWidget {
+  const CategorySelector({super.key});
+
   @override
   Widget build(BuildContext context) {
     final categories = ["All", "Grains", "Vegetables", "Fruits", "Spices"];
 
-    return Container(
+    return SizedBox(
       height: 50,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
@@ -157,6 +159,8 @@ class CategorySelector extends StatelessWidget {
 }
 
 class SearchBar extends StatelessWidget {
+  const SearchBar({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -179,43 +183,40 @@ class SearchBar extends StatelessWidget {
 
 class ProductListScreen extends StatelessWidget {
   // Sample data ya bidhaa na maelezo zaidi
-  final List<Map<String, String>> products = [
-    {
+  static const List<Map<String, String>> products = [
+    const {
       "name": "Mahindi",
-      "price": "Tsh 50,000",
+      "price": "Tsh 2000/kg",
       "image": "🌽",
-      "origin": "Mbeya",
-      "season": "Jan - Mar",
-    },
-    {
-      "name": "Mpunga",
-      "price": "Tsh 70,000",
-      "image": "🌾",
-      "origin": "Morogoro",
-      "season": "Mar - Jun",
-    },
-    {
-      "name": "Maharage",
-      "price": "Tsh 30,000",
-      "image": "🫘",
-      "origin": "Arusha",
-      "season": "Apr - Jul",
-    },
-    {
-      "name": "Viazi",
-      "price": "Tsh 25,000",
-      "image": "🥔",
-      "origin": "Iringa",
       "season": "Year-round",
     },
-    {
+    const {
+      "name": "Maharage",
+      "price": "Tsh 3000/kg",
+      "image": "🫘",
+      "season": "Year-round",
+    },
+    const {
       "name": "Ndizi",
-      "price": "Tsh 15,000",
+      "price": "Tsh 1000/bunch",
       "image": "🍌",
-      "origin": "Kilimanjaro",
+      "season": "Year-round",
+    },
+    const {
+      "name": "Nyanya",
+      "price": "Tsh 2500/kg",
+      "image": "🍅",
+      "season": "Year-round",
+    },
+    const {
+      "name": "Vitunguu",
+      "price": "Tsh 2000/kg",
+      "image": "🧅",
       "season": "Year-round",
     },
   ];
+
+  const ProductListScreen({super.key});
 
   @override
   Widget build(BuildContext context) {

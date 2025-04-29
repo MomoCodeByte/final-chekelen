@@ -223,7 +223,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> with Single
                   scrollDirection: Axis.horizontal,
                   child: DataTable(
                     columnSpacing: 24,
-                    headingRowColor: MaterialStateProperty.all(Colors.grey[100]),
+                    headingRowColor: WidgetStateProperty.all(Colors.grey[100]),
                     headingTextStyle: TextStyle(
                       color: Colors.grey[700],
                       fontWeight: FontWeight.bold,
@@ -567,7 +567,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> with Single
                 
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('${userType} added successfully'),
+                    content: Text('$userType added successfully'),
                     backgroundColor: Colors.green,
                   ),
                 );
