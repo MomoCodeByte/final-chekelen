@@ -24,7 +24,7 @@ class _CropManagementScreenState extends State<CropManagementScreen>
   List<dynamic> filteredCrops = [];
   final TextEditingController _farmerIdController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _descriptionController = TextEditingController();
+  final TextEditingController _categoriesController = TextEditingController();
   final TextEditingController _priceController = TextEditingController();
   final TextEditingController _searchController = TextEditingController();
 
@@ -93,7 +93,7 @@ class _CropManagementScreenState extends State<CropManagementScreen>
     _searchController.dispose();
     _farmerIdController.dispose();
     _nameController.dispose();
-    _descriptionController.dispose();
+    _categoriesController.dispose();
     _priceController.dispose();
     super.dispose();
   }
@@ -108,8 +108,8 @@ class _CropManagementScreenState extends State<CropManagementScreen>
                 crop['name'].toString().toLowerCase().contains(
                   _searchController.text.toLowerCase(),
                 ) ||
-                (crop['description'] != null &&
-                    crop['description'].toString().toLowerCase().contains(
+                (crop['categories'] != null &&
+                    crop['categories'].toString().toLowerCase().contains(
                       _searchController.text.toLowerCase(),
                     ));
 
@@ -219,9 +219,9 @@ class _CropManagementScreenState extends State<CropManagementScreen>
       // Add text fields
       request.fields['farmer_id'] = _farmerIdController.text;
       request.fields['name'] = _nameController.text;
-      request.fields['description'] =
-          _descriptionController.text.isNotEmpty
-              ? _descriptionController.text
+      request.fields['categories'] =
+          _categoriesController.text.isNotEmpty
+              ? _categoriesController.text
               : '';
 
       // Ensure price is a valid number
@@ -338,7 +338,7 @@ class _CropManagementScreenState extends State<CropManagementScreen>
   void _clearFields() {
     _farmerIdController.clear();
     _nameController.clear();
-    _descriptionController.clear();
+    _categoriesController.clear();
     _priceController.clear();
     setState(() {
       _isAvailable = true;
@@ -377,7 +377,7 @@ class _CropManagementScreenState extends State<CropManagementScreen>
     final crop = crops.firstWhere((c) => c['crop_id'].toString() == id);
     _farmerIdController.text = crop['farmer_id'].toString();
     _nameController.text = crop['name'];
-    _descriptionController.text = crop['description'] ?? '';
+    _categoriesController.text = crop['categories'] ?? '';
     _priceController.text = crop['price'].toString();
     setState(() {
       _isAvailable = crop['is_available'] == 1;
@@ -395,7 +395,6 @@ class _CropManagementScreenState extends State<CropManagementScreen>
     final bool isOrganic = crop['organic'] == 1;
     final bool isFresh = crop['fresh'] == 1;
 
-      
     return Container(
           margin: const EdgeInsets.only(bottom: 16),
           child: Card(
@@ -530,9 +529,9 @@ class _CropManagementScreenState extends State<CropManagementScreen>
                       ),
                       const SizedBox(height: 12),
 
-                      // Description
-                      if (crop['description'] != null &&
-                          crop['description'].toString().isNotEmpty)
+                      // categories
+                      if (crop['categories'] != null &&
+                          crop['categories'].toString().isNotEmpty)
                         Container(
                           width: double.infinity,
                           padding: const EdgeInsets.all(12),
@@ -542,7 +541,7 @@ class _CropManagementScreenState extends State<CropManagementScreen>
                             border: Border.all(color: Colors.grey[300]!),
                           ),
                           child: Text(
-                            crop['description'] ?? 'No description',
+                            crop['categories'] ?? 'No categories',
                             style: TextStyle(color: Colors.grey[800]),
                           ),
                         ),
@@ -847,7 +846,7 @@ class _CropManagementScreenState extends State<CropManagementScreen>
       child: TextField(
         controller: _searchController,
         decoration: InputDecoration(
-          hintText: 'Search crops by name or description...',
+          hintText: 'Search crops by name or categories...',
           border: InputBorder.none,
           prefixIcon: Icon(Icons.search, color: primaryGreen),
           suffixIcon: Row(
@@ -1371,9 +1370,9 @@ class _CropManagementScreenState extends State<CropManagementScreen>
                           ),
                           const SizedBox(height: 16),
                           _buildFormField(
-                            controller: _descriptionController,
-                            label: 'Description',
-                            icon: Icons.description,
+                            controller: _categoriesController,
+                            label: 'categories',
+                            icon: Icons.category,
                             isRequired: false,
                             maxLines: 3,
                           ),

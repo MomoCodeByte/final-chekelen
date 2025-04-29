@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import '../Componets/Login_screen.dart';
 import '../Componets/chat_screen.dart';
 
-
 class ProductDetailsScreen extends StatelessWidget {
   final String productName;
   final String price;
 
-  const ProductDetailsScreen({super.key, required this.productName, required this.price});
+  const ProductDetailsScreen({
+    super.key,
+    required this.productName,
+    required this.price,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -209,12 +212,14 @@ class ProductDetailsScreen extends StatelessWidget {
                           Icons.shopping_bag_outlined,
                           () {
                             // Navigate to checkout page
-                           
-                           Navigator.push(
-                           context,
-                            MaterialPageRoute(builder: (context) => LoginScreen()),
-                           );
-                   
+
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => LoginScreen(),
+                              ),
+                            );
+
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text("Kuendelea na malipo..."),
@@ -236,7 +241,9 @@ class ProductDetailsScreen extends StatelessWidget {
                             // Add to cart functionality
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text("Bidhaa imeongezwa kwenye kikapu"),
+                                content: Text(
+                                  "Bidhaa imeongezwa kwenye kikapu",
+                                ),
                                 backgroundColor: Colors.green.shade700,
                               ),
                             );
@@ -270,42 +277,16 @@ class ProductDetailsScreen extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Call Button
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  // Phone call functionality
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text("Kupiga simu kwa muuzaji..."),
-                      backgroundColor: Colors.green.shade700,
-                    ),
-                  );
-                },
-                icon: Icon(Icons.call_outlined),
-                label: Text(
-                  "Piga Simu",
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green.shade700,
-                  foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 0,
-                ),
-              ),
-            ),
-            SizedBox(width: 16),
             // Chat Button
             Expanded(
               child: ElevatedButton.icon(
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => ChatScreen(chatUser: "Juma Wakulima")),
+                    MaterialPageRoute(
+                      builder:
+                          (context) => ChatScreen(chatUser: "Juma Wakulima"),
+                    ),
                   );
                 },
                 icon: Icon(Icons.chat_outlined),
@@ -385,11 +366,24 @@ class ProductDetailsScreen extends StatelessWidget {
   // Helper methods to get product-specific information
   String _getProductEmoji(String name) {
     Map<String, String> emojiMap = {
-      "Mahindi": "🌽",
-      "Mpunga": "🌾",
-      "Maharage": "🫘",
-      "Viazi": "🥔",
-      "Ndizi": "🍌",
+      "mahindi": "🌽",
+      "mpunga": "🌾",
+      "maharage": "🫘",
+      
+      "ndizi": "🍌",
+      "nyanya": "🍅",
+      "vitunguu": "🧅",
+      "pilipili": "🌶️",
+      "maembe": "🥭",
+      "mapara chichi": "🥑",
+      "mapera": "🍐",
+      "matikiti maji": "🍉",
+      "pilipili hoho": "🍎",
+      "karafuu": "🌿",
+      "machungwa": "🍊",
+      "ma aple": "🍏",
+      "mdalasini": "🌱",
+      "mapapai": "🍐",
     };
 
     return emojiMap[name] ?? "🥬";
@@ -412,10 +406,10 @@ class ProductDetailsScreen extends StatelessWidget {
       "Mahindi": "Jan - Mar",
       "Mpunga": "Mar - Jun",
       "Maharage": "Apr - Jul",
-      "Viazi": "Year-round",
-      "Ndizi": "Year-round",
+      "Viazi": "Msimu-Mwaka jana",
+      "Ndizi": "Msimu-Mwaka huu",
     };
 
-    return seasonMap[name] ?? "Year-round";
+    return seasonMap[name] ?? "Mwaka huu";
   }
 }

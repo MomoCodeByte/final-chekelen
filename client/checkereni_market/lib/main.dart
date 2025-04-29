@@ -4,6 +4,7 @@ import 'dart:convert'; // Import for utf8 and json
 import './screens/Componets/Login_screen.dart';
 import './screens/Componets/welcome_screen.dart';
 import './screens/Componets/RegistrationScreen.dart';
+// import './screens/Clients/product_list.dart';
 import './screens/Clients/product_list.dart';
 import './screens/Clients/product_details.dart';
 import './screens/Farmer/dashboard.dart';
@@ -21,10 +22,11 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'checkereni_market',
-      home: SplashScreen(), // Use a splash screen to determine the initial route
+      home:
+          SplashScreen(), // Use a splash screen to determine the initial route
       routes: {
         '/home': (context) => ProductListScreen(),
-        '/welcome':(context) => WelcomeScreen(),
+        '/welcome': (context) => WelcomeScreen(),
         '/login': (context) => LoginScreen(),
         '/registration': (context) => RegistrationScreen(),
         '/admin': (context) => AdminDashboard(),
@@ -35,10 +37,11 @@ class MyApp extends StatelessWidget {
         if (settings.name == '/details') {
           final args = settings.arguments as Map<String, dynamic>;
           return MaterialPageRoute(
-            builder: (context) => ProductDetailsScreen(
-              productName: args['productName'],
-              price: args['price'],
-            ),
+            builder:
+                (context) => ProductDetailsScreen(
+                  productName: args['productName'],
+                  price: args['price'],
+                ),
           );
         }
         return null; // Return null for undefined routes
@@ -59,7 +62,9 @@ class SplashScreen extends StatelessWidget {
       // Navigate to the appropriate dashboard based on the role
       final parts = token.split('.');
       if (parts.length == 3) {
-        final payload = utf8.decode(base64Url.decode(base64Url.normalize(parts[1])));
+        final payload = utf8.decode(
+          base64Url.decode(base64Url.normalize(parts[1])),
+        );
         final payloadMap = json.decode(payload);
         final userRole = payloadMap['role'];
 
