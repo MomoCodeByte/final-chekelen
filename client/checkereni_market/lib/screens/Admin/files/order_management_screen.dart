@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class OrderManagementScreen extends StatefulWidget {
   const OrderManagementScreen({super.key});
@@ -29,6 +30,9 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
   late AnimationController _animationController;
   final currencyFormatter = NumberFormat.currency(symbol: 'Tsh: ');
 
+  // Secure storage for JWT token
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+
   // Change this to your server URL
   final String baseUrl =
       'http://localhost:3000'; // Use 10.0.2.2 for Android emulator
@@ -46,8 +50,8 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
       vsync: this,
       duration: const Duration(milliseconds: 300),
     );
-    fetchOrders();
     _searchController.addListener(_filterOrders);
+    _checkSessionAndFetchOrders();
   }
 
   @override
@@ -60,6 +64,17 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
     _quantityController.dispose();
     _totalPriceController.dispose();
     super.dispose();
+  }
+
+  // Check for token and fetch orders, redirect to login if no token
+  Future<void> _checkSessionAndFetchOrders() async {
+    final token = await _storage.read(key: 'jwt_token');
+    if (token == null) {
+      _showError('No session found. Please log in.');
+      Navigator.pushReplacementNamed(context, '/login');
+      return;
+    }
+    await fetchOrders();
   }
 
   void _filterOrders() {
@@ -82,103 +97,250 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
     });
   }
 
-  // Fetch Order Here............
+  // Fetch Orders
   Future<void> fetchOrders() async {
     setState(() => _isLoading = true);
-    final response = await http.get(Uri.parse('$baseUrl/api/orders'));
+    try {
+      final token = await _storage.read(key: 'jwt_token');
+      if (token == null) {
+        _showError('No session found. Please log in.');
+        Navigator.pushReplacementNamed(context, '/login');
+        return;
+      }
 
-    if (response.statusCode == 200) {
-      setState(() {
-        orders = json.decode(response.body);
-        filteredOrders = orders;
-      });
-    } else {
-      _showError('Failed to load orders');
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/orders'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        setState(() {
+          orders = json.decode(response.body);
+          _filterOrders();
+        });
+      } else if (response.statusCode == 401) {
+        _showError('Session expired. Please log in again.');
+        await _storage.delete(key: 'jwt_token');
+        Navigator.pushReplacementNamed(context, '/login');
+      } else {
+        _showError(
+          'Failed to load orders: ${response.statusCode}\n${response.body}',
+        );
+      }
+    } catch (e) {
+      _showError('Error loading orders: $e');
     }
     setState(() => _isLoading = false);
   }
 
-  // create  Ordeers
+  // Create Order
   Future<void> createOrder() async {
+    if (!_formKey.currentState!.validate()) return;
+
     setState(() => _isLoading = true);
-    final response = await http.post(
-      Uri.parse('$baseUrl/api/orders'),
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode({
-        'customer_id': int.tryParse(_customerIdController.text) ?? 0,
-        'crop_id': int.tryParse(_cropIdController.text) ?? 0,
-        'quantity': int.tryParse(_quantityController.text) ?? 0,
-        'total_price': double.tryParse(_totalPriceController.text) ?? 0.0,
-      }),
-    );
+    try {
+      final token = await _storage.read(key: 'jwt_token');
+      if (token == null) {
+        _showError('No session found. Please log in.');
+        Navigator.pushReplacementNamed(context, '/login');
+        return;
+      }
 
-    setState(() => _isLoading = false);
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/orders'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({
+          'customer_id': int.tryParse(_customerIdController.text) ?? 0,
+          'crop_id': int.tryParse(_cropIdController.text) ?? 0,
+          'quantity': int.tryParse(_quantityController.text) ?? 0,
+          'total_price': double.tryParse(_totalPriceController.text) ?? 0.0,
+        }),
+      );
 
-    // Debug: Print the response for troubleshooting
-    debugPrint('Response status: ${response.statusCode}');
-    debugPrint('Response body: ${response.body}');
-
-    if (response.statusCode == 201) {
-      fetchOrders();
-      _clearFields();
-      _showSuccess('Order created successfully!');
-    } else {
-      _showError('Failed to create order: ${response.body}');
+      if (response.statusCode == 201) {
+        await fetchOrders();
+        _clearFields();
+        _showSuccess('Order created successfully!');
+      } else if (response.statusCode == 401) {
+        _showError('Session expired. Please log in again.');
+        await _storage.delete(key: 'jwt_token');
+        Navigator.pushReplacementNamed(context, '/login');
+      } else {
+        _showError(
+          'Failed to create order: ${response.statusCode}\n${response.body}',
+        );
+      }
+    } catch (e) {
+      _showError('Error creating order: $e');
     }
+    setState(() => _isLoading = false);
   }
 
-  //Update an Order
+  // Update Order
   Future<void> updateOrder(String id) async {
-    setState(() => _isLoading = true);
-    final response = await http.put(
-      Uri.parse('$baseUrl/api/orders/$id'),
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode({
-        'customer_id': int.parse(_customerIdController.text),
-        'crop_id': int.parse(_cropIdController.text),
-        'quantity': int.parse(_quantityController.text),
-        'total_price': double.parse(_totalPriceController.text),
-      }),
-    );
+    if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isLoading = false);
-    if (response.statusCode == 200) {
-      fetchOrders();
-      _clearFields();
-      _showSuccess('Order updated successfully!');
-    } else {
-      _showError('Failed to update order');
+    setState(() => _isLoading = true);
+    try {
+      final token = await _storage.read(key: 'jwt_token');
+      if (token == null) {
+        _showError('No session found. Please log in.');
+        Navigator.pushReplacementNamed(context, '/login');
+        return;
+      }
+
+      final response = await http.put(
+        Uri.parse('$baseUrl/api/orders/$id'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({
+          'customer_id': int.parse(_customerIdController.text),
+          'crop_id': int.parse(_cropIdController.text),
+          'quantity': int.parse(_quantityController.text),
+          'total_price': double.parse(_totalPriceController.text),
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        await fetchOrders();
+        _clearFields();
+        _showSuccess('Order updated successfully!');
+      } else if (response.statusCode == 401) {
+        _showError('Session expired. Please log in again.');
+        await _storage.delete(key: 'jwt_token');
+        Navigator.pushReplacementNamed(context, '/login');
+      } else {
+        _showError(
+          'Failed to update order: ${response.statusCode}\n${response.body}',
+        );
+      }
+    } catch (e) {
+      _showError('Error updating order: $e');
     }
+    setState(() => _isLoading = false);
   }
 
-  // Update Order status
+  // Update Order Status
   Future<void> updateOrderStatus(String id, String status) async {
     setState(() => _isLoading = true);
-    final response = await http.put(
-      Uri.parse('$baseUrl/api/orders/$id/status'),
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode({'order_status': status}),
-    );
+    try {
+      final token = await _storage.read(key: 'jwt_token');
+      if (token == null) {
+        _showError('No session found. Please log in.');
+        Navigator.pushReplacementNamed(context, '/login');
+        return;
+      }
 
-    setState(() => _isLoading = false);
-    if (response.statusCode == 200) {
-      fetchOrders();
-      _showSuccess('Order status updated to $status successfully!');
-    } else {
-      _showError('Failed to update order status');
+      final response = await http.put(
+        Uri.parse('$baseUrl/api/orders/$id/status'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({'order_status': status}),
+      );
+
+      if (response.statusCode == 200) {
+        await fetchOrders();
+        _showSuccess('Order status updated to $status successfully!');
+      } else if (response.statusCode == 401) {
+        _showError('Session expired. Please log in again.');
+        await _storage.delete(key: 'jwt_token');
+        Navigator.pushReplacementNamed(context, '/login');
+      } else {
+        _showError(
+          'Failed to update order status: ${response.statusCode}\n${response.body}',
+        );
+      }
+    } catch (e) {
+      _showError('Error updating order status: $e');
     }
+    setState(() => _isLoading = false);
   }
 
+  // Delete Order
   Future<void> deleteOrder(String id) async {
     setState(() => _isLoading = true);
-    final response = await http.delete(Uri.parse('$baseUrl/api/orders/$id'));
+    try {
+      final token = await _storage.read(key: 'jwt_token');
+      if (token == null) {
+        _showError('No session found. Please log in.');
+        Navigator.pushReplacementNamed(context, '/login');
+        return;
+      }
 
+      final response = await http.delete(
+        Uri.parse('$baseUrl/api/orders/$id'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        await fetchOrders();
+        _showSuccess('Order deleted successfully!');
+      } else if (response.statusCode == 401) {
+        _showError('Session expired. Please log in again.');
+        await _storage.delete(key: 'jwt_token');
+        Navigator.pushReplacementNamed(context, '/login');
+      } else {
+        _showError(
+          'Failed to delete order: ${response.statusCode}\n${response.body}',
+        );
+      }
+    } catch (e) {
+      _showError('Error deleting order: $e');
+    }
     setState(() => _isLoading = false);
-    if (response.statusCode == 200) {
-      fetchOrders();
-      _showSuccess('Order deleted successfully!');
-    } else {
-      _showError('Failed to delete order');
+  }
+
+  // Logout function
+  Future<void> _logout() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Text('Logout'),
+            content: const Text('Are you sure you want to logout?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(color: Colors.grey[700]),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryGreen,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text('Logout'),
+              ),
+            ],
+          ),
+    );
+
+    if (confirm == true) {
+      await _storage.delete(key: 'jwt_token');
+      _showSuccess('Logged out successfully');
+      Navigator.pushReplacementNamed(context, '/login');
     }
   }
 
@@ -194,6 +356,7 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
   }
 
   void _showError(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -213,6 +376,7 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
   }
 
   void _showSuccess(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -584,7 +748,6 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
             ),
           ],
         ),
-
         elevation: 0,
         actions: [
           IconButton(
@@ -592,9 +755,13 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
             onPressed: fetchOrders,
             tooltip: 'Refresh Orders',
           ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: _logout,
+            tooltip: 'Logout',
+          ),
         ],
       ),
-      // button to popup order
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
           _clearFields();
@@ -682,7 +849,6 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
                       ],
                     ),
                   ),
-
                   // Order Summary
                   Padding(
                     padding: const EdgeInsets.only(bottom: 16),
@@ -715,7 +881,6 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
                       ],
                     ),
                   ),
-
                   // Orders List
                   Expanded(
                     child:
@@ -759,23 +924,17 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
                               itemBuilder: (context, index) {
                                 final order = filteredOrders[index];
                                 final orderId =
-                                    order['order_id']?.toString() ??
-                                    'N/A'; // Default for null
+                                    order['order_id']?.toString() ?? 'N/A';
                                 final customerId =
-                                    order['customer_id']?.toString() ??
-                                    'N/A'; // Default for null
+                                    order['customer_id']?.toString() ?? 'N/A';
                                 final cropId =
-                                    order['crop_id']?.toString() ??
-                                    'N/A'; // Default for null
+                                    order['crop_id']?.toString() ?? 'N/A';
                                 final quantity =
-                                    order['quantity']?.toString() ??
-                                    '0'; // Default for null
+                                    order['quantity']?.toString() ?? '0';
                                 final totalPrice =
-                                    order['total_price']?.toString() ??
-                                    '0.00'; // Default for null
+                                    order['total_price']?.toString() ?? '0.00';
                                 final orderStatus =
-                                    order['order_status'] ??
-                                    'pending'; // Default for null
+                                    order['order_status'] ?? 'pending';
 
                                 return Container(
                                   margin: const EdgeInsets.only(bottom: 12),
@@ -852,9 +1011,7 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
                                                 ),
                                               ],
                                             ),
-
                                             const Divider(height: 24),
-
                                             // Order Details
                                             Row(
                                               children: [
@@ -880,9 +1037,7 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
                                                 ),
                                               ],
                                             ),
-
                                             const SizedBox(height: 16),
-
                                             // Action Buttons
                                             Row(
                                               mainAxisAlignment:

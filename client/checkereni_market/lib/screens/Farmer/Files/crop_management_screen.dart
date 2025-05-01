@@ -7,6 +7,7 @@ import 'package:http_parser/http_parser.dart';
 import 'package:path/path.dart' as path;
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/foundation.dart';
@@ -38,6 +39,9 @@ class _CropManagementScreenState extends State<CropManagementScreen>
   bool _isLoading = false;
   final ImagePicker _picker = ImagePicker();
   late AnimationController _animationController;
+
+  // Secure storage for JWT token
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
   // Filter options
   bool _filterAvailable = false;
@@ -83,7 +87,7 @@ class _CropManagementScreenState extends State<CropManagementScreen>
       duration: const Duration(milliseconds: 300),
     );
     _searchController.addListener(_filterCrops);
-    _fetchCrops();
+    _checkSessionAndFetchCrops();
   }
 
   @override
@@ -96,6 +100,17 @@ class _CropManagementScreenState extends State<CropManagementScreen>
     _categoriesController.dispose();
     _priceController.dispose();
     super.dispose();
+  }
+
+  // Check for token and fetch crops, redirect to login if no token
+  Future<void> _checkSessionAndFetchCrops() async {
+    final token = await _storage.read(key: 'jwt_token');
+    if (token == null) {
+      _showMessage('No session found. Please log in.', isError: true);
+      Navigator.pushReplacementNamed(context, '/login');
+      return;
+    }
+    await _fetchCrops();
   }
 
   void _filterCrops() {
@@ -148,15 +163,33 @@ class _CropManagementScreenState extends State<CropManagementScreen>
   Future<void> _fetchCrops() async {
     setState(() => _isLoading = true);
     try {
-      final response = await http.get(Uri.parse('$baseUrl/api/crops'));
+      final token = await _storage.read(key: 'jwt_token');
+      if (token == null) {
+        _showMessage('No session found. Please log in.', isError: true);
+        Navigator.pushReplacementNamed(context, '/login');
+        return;
+      }
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/crops'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
       if (response.statusCode == 200) {
         setState(() {
           crops = json.decode(response.body);
           _filterCrops(); // Apply initial filtering
         });
+      } else if (response.statusCode == 401) {
+        _showMessage('Session expired. Please log in again.', isError: true);
+        await _storage.delete(key: 'jwt_token');
+        Navigator.pushReplacementNamed(context, '/login');
       } else {
         _showMessage(
-          'Failed to load crops: ${response.statusCode}',
+          'Failed to load crops: ${response.statusCode}\n${response.body}',
           isError: true,
         );
       }
@@ -206,6 +239,13 @@ class _CropManagementScreenState extends State<CropManagementScreen>
     setState(() => _isLoading = true);
 
     try {
+      final token = await _storage.read(key: 'jwt_token');
+      if (token == null) {
+        _showMessage('No session found. Please log in.', isError: true);
+        Navigator.pushReplacementNamed(context, '/login');
+        return;
+      }
+
       final url =
           _selectedCropId == null
               ? Uri.parse('$baseUrl/api/crops')
@@ -215,6 +255,9 @@ class _CropManagementScreenState extends State<CropManagementScreen>
         _selectedCropId == null ? 'POST' : 'PUT',
         url,
       );
+
+      // Add Authorization header
+      request.headers['Authorization'] = 'Bearer $token';
 
       // Add text fields
       request.fields['farmer_id'] = _farmerIdController.text;
@@ -267,6 +310,10 @@ class _CropManagementScreenState extends State<CropManagementScreen>
               : 'Crop updated successfully!',
           isError: false,
         );
+      } else if (response.statusCode == 401) {
+        _showMessage('Session expired. Please log in again.', isError: true);
+        await _storage.delete(key: 'jwt_token');
+        Navigator.pushReplacementNamed(context, '/login');
       } else {
         _showMessage(
           'Failed to ${_selectedCropId == null ? 'create' : 'update'} crop: ${response.statusCode}\n${response.body}',
@@ -319,13 +366,31 @@ class _CropManagementScreenState extends State<CropManagementScreen>
 
     setState(() => _isLoading = true);
     try {
-      final response = await http.delete(Uri.parse('$baseUrl/api/crops/$id'));
+      final token = await _storage.read(key: 'jwt_token');
+      if (token == null) {
+        _showMessage('No session found. Please log in.', isError: true);
+        Navigator.pushReplacementNamed(context, '/login');
+        return;
+      }
+
+      final response = await http.delete(
+        Uri.parse('$baseUrl/api/crops/$id'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
       if (response.statusCode == 200) {
         await _fetchCrops();
         _showMessage('Crop deleted successfully!', isError: false);
+      } else if (response.statusCode == 401) {
+        _showMessage('Session expired. Please log in again.', isError: true);
+        await _storage.delete(key: 'jwt_token');
+        Navigator.pushReplacementNamed(context, '/login');
       } else {
         _showMessage(
-          'Failed to delete crop: ${response.statusCode}',
+          'Failed to delete crop: ${response.statusCode}\n${response.body}',
           isError: true,
         );
       }
@@ -333,6 +398,47 @@ class _CropManagementScreenState extends State<CropManagementScreen>
       _showMessage('Error deleting crop: $e', isError: true);
     }
     setState(() => _isLoading = false);
+  }
+
+  // Logout function
+  Future<void> _logout() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Text('Logout'),
+            content: const Text('Are you sure you want to logout?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(color: Colors.grey[700]),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryGreen,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text('Logout'),
+              ),
+            ],
+          ),
+    );
+
+    if (confirm == true) {
+      await _storage.delete(key: 'jwt_token');
+      _showMessage('Logged out successfully', isError: false);
+      Navigator.pushReplacementNamed(context, '/login');
+    }
   }
 
   void _clearFields() {
@@ -453,7 +559,6 @@ class _CropManagementScreenState extends State<CropManagementScreen>
                                 ),
                               ),
                     ),
-
                     // Availability overlay
                     if (!isAvailable)
                       Positioned.fill(
@@ -488,7 +593,6 @@ class _CropManagementScreenState extends State<CropManagementScreen>
                       ),
                   ],
                 ),
-
                 // Crop details
                 Padding(
                   padding: const EdgeInsets.all(16),
@@ -528,8 +632,7 @@ class _CropManagementScreenState extends State<CropManagementScreen>
                         ),
                       ),
                       const SizedBox(height: 12),
-
-                      // categories
+                      // Categories
                       if (crop['categories'] != null &&
                           crop['categories'].toString().isNotEmpty)
                         Container(
@@ -545,9 +648,7 @@ class _CropManagementScreenState extends State<CropManagementScreen>
                             style: TextStyle(color: Colors.grey[800]),
                           ),
                         ),
-
                       const SizedBox(height: 16),
-
                       // Action buttons
                       Row(
                         mainAxisAlignment: MainAxisAlignment.end,
@@ -911,7 +1012,6 @@ class _CropManagementScreenState extends State<CropManagementScreen>
                       ],
                     ),
                     const Divider(height: 32),
-
                     // Filter options
                     Text(
                       'Filter by',
@@ -945,9 +1045,7 @@ class _CropManagementScreenState extends State<CropManagementScreen>
                           (value) => setState(() => _filterFresh = value),
                       icon: Icons.water_drop,
                     ),
-
                     const SizedBox(height: 24),
-
                     // Sort options
                     Text(
                       'Sort by',
@@ -981,9 +1079,7 @@ class _CropManagementScreenState extends State<CropManagementScreen>
                       onChanged: (value) => setState(() => _sortBy = value!),
                       icon: Icons.trending_down,
                     ),
-
                     const SizedBox(height: 32),
-
                     // Apply button
                     SizedBox(
                       width: double.infinity,
@@ -1064,6 +1160,11 @@ class _CropManagementScreenState extends State<CropManagementScreen>
             onPressed: _fetchCrops,
             tooltip: 'Refresh crops',
           ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: _logout,
+            tooltip: 'Logout',
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
@@ -1106,7 +1207,6 @@ class _CropManagementScreenState extends State<CropManagementScreen>
                   children: [
                     // Search bar
                     _buildSearchBar(),
-
                     // Showing applied filters
                     if (_filterAvailable ||
                         _filterOrganic ||
@@ -1149,7 +1249,6 @@ class _CropManagementScreenState extends State<CropManagementScreen>
                           ],
                         ),
                       ),
-
                     // Crop list or empty state
                     Expanded(
                       child:
@@ -1236,7 +1335,6 @@ class _CropManagementScreenState extends State<CropManagementScreen>
                             ],
                           ),
                           const Divider(height: 32),
-
                           // Image upload section
                           Center(
                             child: Column(
@@ -1344,7 +1442,6 @@ class _CropManagementScreenState extends State<CropManagementScreen>
                             ),
                           ),
                           const SizedBox(height: 24),
-
                           // Form fields
                           _buildFormField(
                             controller: _nameController,
@@ -1371,13 +1468,12 @@ class _CropManagementScreenState extends State<CropManagementScreen>
                           const SizedBox(height: 16),
                           _buildFormField(
                             controller: _categoriesController,
-                            label: 'categories',
+                            label: 'Categories',
                             icon: Icons.category,
                             isRequired: false,
                             maxLines: 3,
                           ),
                           const SizedBox(height: 24),
-
                           // Toggle switches
                           Container(
                             padding: const EdgeInsets.all(16),
@@ -1425,7 +1521,6 @@ class _CropManagementScreenState extends State<CropManagementScreen>
                             ),
                           ),
                           const SizedBox(height: 32),
-
                           // Action buttons
                           Row(
                             mainAxisAlignment: MainAxisAlignment.end,

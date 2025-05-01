@@ -3,13 +3,24 @@ import '../Componets/Login_screen.dart';
 import '../Componets/chat_screen.dart';
 
 class ProductDetailsScreen extends StatelessWidget {
+  // Added new parameters for product ID and farmer ID
+  final int productId;
+  final int farmerId;
   final String productName;
   final String price;
+  final bool isOrganic;
+  final bool isFresh;
+  final String? categories;
 
   const ProductDetailsScreen({
     super.key,
+    required this.productId,
+    required this.farmerId,
     required this.productName,
     required this.price,
+    this.isOrganic = false,
+    this.isFresh = false,
+    this.categories,
   });
 
   @override
@@ -80,6 +91,23 @@ class ProductDetailsScreen extends StatelessWidget {
                     ),
                   ),
                 ),
+                SizedBox(height: 8),
+                // Added category display
+                if (categories != null)
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: Text(
+                      categories!,
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -91,9 +119,66 @@ class ProductDetailsScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Product ID and Farmer ID info
+                  Container(
+                    margin: EdgeInsets.only(bottom: 16),
+                    padding: EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // Product ID
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Product ID",
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                            Text(
+                              "#$productId",
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ],
+                        ),
+                        // Farmer ID
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              "Farmer ID",
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                            Text(
+                              "#$farmerId",
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
                   // Price Card
                   Container(
-                    margin: EdgeInsets.only(top: 10, bottom: 24),
+                    margin: EdgeInsets.only(top: 0, bottom: 24),
                     padding: EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: Colors.white,
@@ -173,11 +258,16 @@ class ProductDetailsScreen extends StatelessWidget {
                   ),
                   SizedBox(height: 16),
 
-                  _buildFeatureRow(
-                    Icons.check_circle_outline,
-                    "Bidhaa za Asili",
+                  // Display organic and fresh status based on parameters
+                  if (isOrganic) _buildFeatureRow(
+                      Icons.check_circle_outline,
+                      "Bidhaa za Asili",
                   ),
-                  _buildFeatureRow(Icons.eco_outlined, "Kilimo Hai"),
+                  if (isOrganic) _buildFeatureRow(Icons.eco_outlined, "Kilimo Hai"),
+                  if (isFresh) _buildFeatureRow(
+                      Icons.local_florist_outlined,
+                      "Fresh mazao",
+                  ),
                   _buildFeatureRow(
                     Icons.location_on_outlined,
                     "Imetoka ${_getProductOrigin(productName)}",
@@ -212,7 +302,6 @@ class ProductDetailsScreen extends StatelessWidget {
                           Icons.shopping_bag_outlined,
                           () {
                             // Navigate to checkout page
-
                             Navigator.push(
                               context,
                               MaterialPageRoute(
@@ -277,15 +366,19 @@ class ProductDetailsScreen extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Chat Button
+            // Chat Button - Now passes the farmer ID
             Expanded(
               child: ElevatedButton.icon(
                 onPressed: () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder:
-                          (context) => ChatScreen(chatUser: "Juma Wakulima"),
+                      builder: (context) => ChatScreen(
+                        chatUser: "Farmer #$farmerId",
+                        farmerId: farmerId,
+                        productId: productId,
+                        productName: productName,
+                      ),
                     ),
                   );
                 },
@@ -369,7 +462,6 @@ class ProductDetailsScreen extends StatelessWidget {
       "mahindi": "🌽",
       "mpunga": "🌾",
       "maharage": "🫘",
-      
       "ndizi": "🍌",
       "nyanya": "🍅",
       "vitunguu": "🧅",
@@ -386,30 +478,38 @@ class ProductDetailsScreen extends StatelessWidget {
       "mapapai": "🍐",
     };
 
-    return emojiMap[name] ?? "🥬";
+    return emojiMap[name.toLowerCase()] ?? "🥬";
   }
 
   String _getProductOrigin(String name) {
     Map<String, String> originMap = {
-      "Mahindi": "Mbeya",
-      "Mpunga": "Morogoro",
-      "Maharage": "Arusha",
-      "Viazi": "Iringa",
-      "Ndizi": "Kilimanjaro",
+      "mahindi": "Mbeya",
+      "mpunga": "Morogoro",
+      "maharage": "Arusha",
+      "viazi": "Iringa",
+      "ndizi": "Kilimanjaro",
+      "nyanya": "Iringa",
+      "vitunguu": "Singida",
+      "pilipili": "Tanga",
+      "maembe": "Morogoro",
+      "mapara chichi": "Mbeya",
     };
 
-    return originMap[name] ?? "Tanzania";
+    return originMap[name.toLowerCase()] ?? "Tanzania";
   }
 
   String _getProductSeason(String name) {
     Map<String, String> seasonMap = {
-      "Mahindi": "Jan - Mar",
-      "Mpunga": "Mar - Jun",
-      "Maharage": "Apr - Jul",
-      "Viazi": "Msimu-Mwaka jana",
-      "Ndizi": "Msimu-Mwaka huu",
+      "mahindi": "Jan - Mar",
+      "mpunga": "Mar - Jun",
+      "maharage": "Apr - Jul",
+      "viazi": "Msimu-Mwaka jana",
+      "ndizi": "Msimu-Mwaka huu",
+      "nyanya": "Sep - Dec",
+      "vitunguu": "Feb - May",
+      "pilipili": "Jan - Dec",
     };
 
-    return seasonMap[name] ?? "Mwaka huu";
+    return seasonMap[name.toLowerCase()] ?? "Mwaka huu";
   }
 }
