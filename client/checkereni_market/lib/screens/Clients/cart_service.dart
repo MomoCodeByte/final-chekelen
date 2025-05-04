@@ -113,7 +113,7 @@ class CartItem {
     );
   }
 
-  // New factory constructor to parse API response
+  // Updated factory constructor to handle integer-to-boolean conversion
   factory CartItem.fromJson(Map<String, dynamic> json) {
     return CartItem(
       cartItemId: json['cart_item_id'],
@@ -121,13 +121,13 @@ class CartItem {
       name: json['name'],
       price: json['price'].toString(),
       quantity: json['quantity'],
-      isOrganic: json['is_organic'] ?? false,
-      isFresh: json['is_fresh'] ?? false,
+      isOrganic: (json['is_organic'] ?? 0) == 1,
+      isFresh: (json['is_fresh'] ?? 0) == 1,
       imagePath: json['image_path'],
       emoji: Crop._getEmojiForProduct(json['name']),
       farmerId: json['farmer_id'],
       farmerName: json['farmer_name'],
-      isAvailable: json['is_available'] ?? true,
+      isAvailable: (json['is_available'] ?? 1) == 1,
       lineTotal: (json['line_total'] ?? 0).toDouble(),
     );
   }
