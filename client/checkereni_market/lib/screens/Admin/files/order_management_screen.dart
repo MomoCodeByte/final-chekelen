@@ -14,18 +14,12 @@ class OrderManagementScreen extends StatefulWidget {
 
 class _OrderManagementScreenState extends State<OrderManagementScreen>
     with SingleTickerProviderStateMixin {
-  List<dynamic> orders = [];
-  List<dynamic> filteredOrders = [];
-  final TextEditingController _customerIdController = TextEditingController();
-  final TextEditingController _cropIdController = TextEditingController();
-  final TextEditingController _quantityController = TextEditingController();
-  final TextEditingController _totalPriceController = TextEditingController();
+  List<Map<String, dynamic>> orders = [];
+  List<Map<String, dynamic>> filteredOrders = [];
   final TextEditingController _searchController = TextEditingController();
 
-  String? _selectedOrderId;
   String? _selectedOrderStatus;
   String? _statusFilter;
-  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
   late AnimationController _animationController;
   final currencyFormatter = NumberFormat.currency(symbol: 'Tsh: ');
@@ -34,8 +28,7 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
   // Change this to your server URL
-  final String baseUrl =
-      'http://localhost:3000'; // Use 10.0.2.2 for Android emulator
+  final String baseUrl = 'http://localhost:3000'; // Use 10.0.2.2 for Android emulator
 
   // Custom Colors
   final Color primaryGreen = const Color(0xFF2E7D32);
@@ -59,10 +52,6 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
     _animationController.dispose();
     _searchController.removeListener(_filterOrders);
     _searchController.dispose();
-    _customerIdController.dispose();
-    _cropIdController.dispose();
-    _quantityController.dispose();
-    _totalPriceController.dispose();
     super.dispose();
   }
 
@@ -79,21 +68,16 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
 
   void _filterOrders() {
     setState(() {
-      filteredOrders =
-          orders.where((order) {
-            final searchMatch =
-                _searchController.text.isEmpty ||
-                order['order_id'].toString().contains(_searchController.text) ||
-                order['customer_id'].toString().contains(
-                  _searchController.text,
-                ) ||
-                order['crop_id'].toString().contains(_searchController.text);
+      filteredOrders = orders.where((order) {
+        final searchMatch = _searchController.text.isEmpty ||
+            order['order_id'].toString().contains(_searchController.text) ||
+            order['customer_id'].toString().contains(_searchController.text);
 
-            final statusMatch =
-                _statusFilter == null || order['order_status'] == _statusFilter;
+        final statusMatch =
+            _statusFilter == null || order['order_status'] == _statusFilter;
 
-            return searchMatch && statusMatch;
-          }).toList();
+        return searchMatch && statusMatch;
+      }).toList();
     });
   }
 
@@ -117,8 +101,35 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
       );
 
       if (response.statusCode == 200) {
+        // Parse and group orders by order_id
+        final List<dynamic> rawOrders = json.decode(response.body);
+        final Map<String, Map<String, dynamic>> groupedOrders = {};
+
+        for (var item in rawOrders) {
+          final orderId = item['order_id'].toString();
+          if (!groupedOrders.containsKey(orderId)) {
+            groupedOrders[orderId] = {
+              'order_id': item['order_id'].toString(),
+              'customer_id': item['customer_id']?.toString() ?? 'N/A',
+              'total_price': item['total_price']?.toString() ?? '0.00',
+              'order_status': item['order_status'] ?? 'pending',
+              'created_at': item['created_at'] ?? '',
+              'items': [],
+            };
+          }
+          if (item['order_item_id'] != null) {
+            groupedOrders[orderId]!['items'].add({
+              'order_item_id': item['order_item_id'].toString(),
+              'crop_id': item['crop_id']?.toString() ?? 'N/A',
+              'quantity': item['quantity']?.toString() ?? '0',
+              'unit_price': item['unit_price']?.toString() ?? '0.00',
+              'crop_name': item['crop_name'] ?? 'Unknown Crop',
+            });
+          }
+        }
+
         setState(() {
-          orders = json.decode(response.body);
+          orders = groupedOrders.values.toList();
           _filterOrders();
         });
       } else if (response.statusCode == 401) {
@@ -132,98 +143,6 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
       }
     } catch (e) {
       _showError('Error loading orders: $e');
-    }
-    setState(() => _isLoading = false);
-  }
-
-  // Create Order
-  Future<void> createOrder() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() => _isLoading = true);
-    try {
-      final token = await _storage.read(key: 'jwt_token');
-      if (token == null) {
-        _showError('No session found. Please log in.');
-        Navigator.pushReplacementNamed(context, '/login');
-        return;
-      }
-
-      final response = await http.post(
-        Uri.parse('$baseUrl/api/orders'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: json.encode({
-          'customer_id': int.tryParse(_customerIdController.text) ?? 0,
-          'crop_id': int.tryParse(_cropIdController.text) ?? 0,
-          'quantity': int.tryParse(_quantityController.text) ?? 0,
-          'total_price': double.tryParse(_totalPriceController.text) ?? 0.0,
-        }),
-      );
-
-      if (response.statusCode == 201) {
-        await fetchOrders();
-        _clearFields();
-        _showSuccess('Order created successfully!');
-      } else if (response.statusCode == 401) {
-        _showError('Session expired. Please log in again.');
-        await _storage.delete(key: 'jwt_token');
-        Navigator.pushReplacementNamed(context, '/login');
-      } else {
-        _showError(
-          'Failed to create order: ${response.statusCode}\n${response.body}',
-        );
-      }
-    } catch (e) {
-      _showError('Error creating order: $e');
-    }
-    setState(() => _isLoading = false);
-  }
-
-  // Update Order
-  Future<void> updateOrder(String id) async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() => _isLoading = true);
-    try {
-      final token = await _storage.read(key: 'jwt_token');
-      if (token == null) {
-        _showError('No session found. Please log in.');
-        Navigator.pushReplacementNamed(context, '/login');
-        return;
-      }
-
-      final response = await http.put(
-        Uri.parse('$baseUrl/api/orders/$id'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: json.encode({
-          'customer_id': int.parse(_customerIdController.text),
-          'crop_id': int.parse(_cropIdController.text),
-          'quantity': int.parse(_quantityController.text),
-          'total_price': double.parse(_totalPriceController.text),
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        await fetchOrders();
-        _clearFields();
-        _showSuccess('Order updated successfully!');
-      } else if (response.statusCode == 401) {
-        _showError('Session expired. Please log in again.');
-        await _storage.delete(key: 'jwt_token');
-        Navigator.pushReplacementNamed(context, '/login');
-      } else {
-        _showError(
-          'Failed to update order: ${response.statusCode}\n${response.body}',
-        );
-      }
-    } catch (e) {
-      _showError('Error updating order: $e');
     }
     setState(() => _isLoading = false);
   }
@@ -266,75 +185,37 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
     setState(() => _isLoading = false);
   }
 
-  // Delete Order
-  Future<void> deleteOrder(String id) async {
-    setState(() => _isLoading = true);
-    try {
-      final token = await _storage.read(key: 'jwt_token');
-      if (token == null) {
-        _showError('No session found. Please log in.');
-        Navigator.pushReplacementNamed(context, '/login');
-        return;
-      }
-
-      final response = await http.delete(
-        Uri.parse('$baseUrl/api/orders/$id'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        await fetchOrders();
-        _showSuccess('Order deleted successfully!');
-      } else if (response.statusCode == 401) {
-        _showError('Session expired. Please log in again.');
-        await _storage.delete(key: 'jwt_token');
-        Navigator.pushReplacementNamed(context, '/login');
-      } else {
-        _showError(
-          'Failed to delete order: ${response.statusCode}\n${response.body}',
-        );
-      }
-    } catch (e) {
-      _showError('Error deleting order: $e');
-    }
-    setState(() => _isLoading = false);
-  }
-
   // Logout function
   Future<void> _logout() async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: const Text('Logout'),
+        content: const Text('Are you sure you want to logout?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: Colors.grey[700]),
             ),
-            title: const Text('Logout'),
-            content: const Text('Are you sure you want to logout?'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: Text(
-                  'Cancel',
-                  style: TextStyle(color: Colors.grey[700]),
-                ),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryGreen,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: const Text('Logout'),
-              ),
-            ],
           ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryGreen,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Logout'),
+          ),
+        ],
+      ),
     );
 
     if (confirm == true) {
@@ -342,17 +223,6 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
       _showSuccess('Logged out successfully');
       Navigator.pushReplacementNamed(context, '/login');
     }
-  }
-
-  void _clearFields() {
-    _customerIdController.clear();
-    _cropIdController.clear();
-    _quantityController.clear();
-    _totalPriceController.clear();
-    setState(() {
-      _selectedOrderId = null;
-      _selectedOrderStatus = null;
-    });
   }
 
   void _showError(String message) {
@@ -392,123 +262,6 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
         margin: const EdgeInsets.all(12),
         duration: const Duration(seconds: 3),
       ),
-    );
-  }
-
-  void _showForm(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          backgroundColor: Colors.white,
-          title: Text(
-            _selectedOrderId == null ? 'Create Order' : 'Update Order',
-            style: TextStyle(color: primaryGreen, fontWeight: FontWeight.bold),
-          ),
-          content: SingleChildScrollView(
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildFormField(
-                    _customerIdController,
-                    'Customer ID',
-                    Icons.person,
-                    TextInputType.number,
-                  ),
-                  const SizedBox(height: 16),
-                  _buildFormField(
-                    _cropIdController,
-                    'Crop ID',
-                    Icons.grass,
-                    TextInputType.number,
-                  ),
-                  const SizedBox(height: 16),
-                  _buildFormField(
-                    _quantityController,
-                    'Quantity',
-                    Icons.shopping_cart,
-                    TextInputType.number,
-                  ),
-                  const SizedBox(height: 16),
-                  _buildFormField(
-                    _totalPriceController,
-                    'Total Price',
-                    Icons.attach_money,
-                    const TextInputType.numberWithOptions(decimal: true),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text('Cancel', style: TextStyle(color: Colors.grey[700])),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (_formKey.currentState!.validate()) {
-                  if (_selectedOrderId == null) {
-                    createOrder();
-                  } else {
-                    updateOrder(_selectedOrderId!);
-                  }
-                  Navigator.of(context).pop();
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: primaryGreen,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: const Text('Submit'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildFormField(
-    TextEditingController controller,
-    String label,
-    IconData icon,
-    TextInputType keyboardType,
-  ) {
-    return TextFormField(
-      controller: controller,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon, color: primaryGreen),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: lightGreen),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: primaryGreen, width: 2),
-        ),
-        filled: true,
-        fillColor: Colors.grey[50],
-      ),
-      keyboardType: keyboardType,
-      validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'This field is required';
-        }
-        if (keyboardType == TextInputType.number &&
-            double.tryParse(value) == null) {
-          return 'Enter a valid number';
-        }
-        return null;
-      },
     );
   }
 
@@ -574,39 +327,38 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
                     isExpanded: true,
                     icon: const Icon(Icons.arrow_drop_down_circle),
                     iconEnabledColor: primaryGreen,
-                    items:
-                        [
-                              'pending',
-                              'processed',
-                              'shipped',
-                              'delivered',
-                              'canceled',
-                            ]
-                            .map(
-                              (status) => DropdownMenuItem(
-                                value: status,
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 12,
-                                      height: 12,
-                                      decoration: BoxDecoration(
-                                        color: _getStatusColor(status),
-                                        shape: BoxShape.circle,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      status,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
+                    items: [
+                      'pending',
+                      'processed',
+                      'shipped',
+                      'delivered',
+                      'cancelled',
+                    ]
+                        .map(
+                          (status) => DropdownMenuItem(
+                            value: status,
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 12,
+                                  height: 12,
+                                  decoration: BoxDecoration(
+                                    color: _getStatusColor(status),
+                                    shape: BoxShape.circle,
+                                  ),
                                 ),
-                              ),
-                            )
-                            .toList(),
+                                const SizedBox(width: 8),
+                                Text(
+                                  status,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                        .toList(),
                     onChanged: (value) {
                       setState(() {
                         _selectedOrderStatus = value;
@@ -646,38 +398,6 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
     );
   }
 
-  void _showDeleteConfirmationDialog(String orderId) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Text('Confirm Deletion'),
-          content: Text('Are you sure you want to delete Order #$orderId?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text('Cancel', style: TextStyle(color: Colors.grey[700])),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                deleteOrder(orderId);
-                Navigator.of(context).pop();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Delete'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
       case 'pending':
@@ -688,7 +408,7 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
         return Colors.purple;
       case 'delivered':
         return Colors.green;
-      case 'canceled':
+      case 'cancelled':
         return Colors.red;
       default:
         return Colors.grey; // Fallback for invalid or unknown statuses
@@ -762,22 +482,6 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          _clearFields();
-          _showForm(context);
-        },
-        backgroundColor: primaryGreen,
-        icon: const Icon(Icons.add_business_sharp, color: Colors.white),
-        label: const Text(
-          'Add Order',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        elevation: 4,
-      ).animate().scale(
-        curve: Curves.elasticOut,
-        duration: const Duration(milliseconds: 500),
-      ),
       body: Stack(
         children: [
           SafeArea(
@@ -842,7 +546,7 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
                               _buildFilterChip('Processed', 'processed'),
                               _buildFilterChip('Shipped', 'shipped'),
                               _buildFilterChip('Delivered', 'delivered'),
-                              _buildFilterChip('Canceled', 'canceled'),
+                              _buildFilterChip('Cancelled', 'cancelled'),
                             ],
                           ),
                         ),
@@ -883,223 +587,176 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
                   ),
                   // Orders List
                   Expanded(
-                    child:
-                        _isLoading
+                    child: _isLoading
+                        ? Center(
+                            child: CircularProgressIndicator(
+                              color: primaryGreen,
+                            ),
+                          )
+                        : filteredOrders.isEmpty
                             ? Center(
-                              child: CircularProgressIndicator(
-                                color: primaryGreen,
-                              ),
-                            )
-                            : filteredOrders.isEmpty
-                            ? Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.inventory_2_outlined,
-                                    size: 80,
-                                    color: Colors.grey[400],
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    'No orders found',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      color: Colors.grey[600],
-                                      fontWeight: FontWeight.w500,
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.inventory_2_outlined,
+                                      size: 80,
+                                      color: Colors.grey[400],
                                     ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    _statusFilter != null
-                                        ? 'Try changing your filter'
-                                        : 'Create a new order to get started',
-                                    style: TextStyle(color: Colors.grey[500]),
-                                  ),
-                                ],
-                              ),
-                            )
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      'No orders found',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        color: Colors.grey[600],
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      _statusFilter != null
+                                          ? 'Try changing your filter'
+                                          : 'No orders available',
+                                      style: TextStyle(color: Colors.grey[500]),
+                                    ),
+                                  ],
+                                ),
+                              )
                             : ListView.builder(
-                              itemCount: filteredOrders.length,
-                              itemBuilder: (context, index) {
-                                final order = filteredOrders[index];
-                                final orderId =
-                                    order['order_id']?.toString() ?? 'N/A';
-                                final customerId =
-                                    order['customer_id']?.toString() ?? 'N/A';
-                                final cropId =
-                                    order['crop_id']?.toString() ?? 'N/A';
-                                final quantity =
-                                    order['quantity']?.toString() ?? '0';
-                                final totalPrice =
-                                    order['total_price']?.toString() ?? '0.00';
-                                final orderStatus =
-                                    order['order_status'] ?? 'pending';
+                                itemCount: filteredOrders.length,
+                                itemBuilder: (context, index) {
+                                  final order = filteredOrders[index];
+                                  final orderId = order['order_id'] ?? 'N/A';
+                                  final customerId = order['customer_id'] ?? 'N/A';
+                                  final totalPrice = order['total_price'] ?? '0.00';
+                                  final orderStatus = order['order_status'] ?? 'pending';
+                                  final items = order['items'] as List<dynamic>;
 
-                                return Container(
-                                  margin: const EdgeInsets.only(bottom: 12),
-                                  child: Card(
-                                    elevation: 0,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        border: Border(
-                                          left: BorderSide(
-                                            color: _getStatusColor(orderStatus),
-                                            width: 8,
+                                  return Container(
+                                    margin: const EdgeInsets.only(bottom: 12),
+                                    child: Card(
+                                      elevation: 0,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          border: Border(
+                                            left: BorderSide(
+                                              color: _getStatusColor(orderStatus),
+                                              width: 8,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(16),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            // Order Header
-                                            Row(
-                                              children: [
-                                                Container(
-                                                  padding: const EdgeInsets.all(
-                                                    8,
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(16),
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              // Order Header
+                                              Row(
+                                                children: [
+                                                  Container(
+                                                    padding: const EdgeInsets.all(8),
+                                                    decoration: BoxDecoration(
+                                                      color: primaryGreen.withOpacity(0.1),
+                                                      borderRadius: BorderRadius.circular(8),
+                                                    ),
+                                                    child: Icon(
+                                                      Icons.shopping_bag,
+                                                      color: primaryGreen,
+                                                      size: 20,
+                                                    ),
                                                   ),
-                                                  decoration: BoxDecoration(
-                                                    color: primaryGreen
-                                                        .withOpacity(0.1),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          8,
+                                                  const SizedBox(width: 12),
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                                      children: [
+                                                        Text(
+                                                          'Order #$orderId',
+                                                          style: const TextStyle(
+                                                            fontWeight: FontWeight.bold,
+                                                            fontSize: 16,
+                                                          ),
                                                         ),
+                                                        const SizedBox(height: 2),
+                                                        Text(
+                                                          'Customer ID: $customerId',
+                                                          style: TextStyle(
+                                                            color: Colors.grey[600],
+                                                            fontSize: 12,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
                                                   ),
-                                                  child: Icon(
-                                                    Icons.shopping_bag,
-                                                    color: primaryGreen,
-                                                    size: 20,
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 12),
-                                                Expanded(
-                                                  child: Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
+                                                  _buildOrderStatusChip(orderStatus),
+                                                ],
+                                              ),
+                                              const Divider(height: 24),
+                                              // Order Items
+                                              ...items.map((item) {
+                                                return Padding(
+                                                  padding: const EdgeInsets.only(bottom: 12),
+                                                  child: Row(
                                                     children: [
-                                                      Text(
-                                                        'Order #$orderId',
-                                                        style: const TextStyle(
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                          fontSize: 16,
-                                                        ),
+                                                      _buildDetailItem(
+                                                        'Crop',
+                                                        '${item['crop_name']} (ID: ${item['crop_id']})',
+                                                        Icons.grass,
                                                       ),
-                                                      const SizedBox(height: 2),
-                                                      Text(
-                                                        'Customer ID: $customerId',
-                                                        style: TextStyle(
-                                                          color:
-                                                              Colors.grey[600],
-                                                          fontSize: 12,
+                                                      _buildDetailItem(
+                                                        'Quantity',
+                                                        item['quantity'],
+                                                        Icons.shopping_cart,
+                                                      ),
+                                                      _buildDetailItem(
+                                                        'Unit Price',
+                                                        currencyFormatter.format(
+                                                          double.tryParse(item['unit_price']) ?? 0.0,
                                                         ),
+                                                        Icons.attach_money,
                                                       ),
                                                     ],
                                                   ),
-                                                ),
-                                                _buildOrderStatusChip(
-                                                  orderStatus,
-                                                ),
-                                              ],
-                                            ),
-                                            const Divider(height: 24),
-                                            // Order Details
-                                            Row(
-                                              children: [
-                                                _buildDetailItem(
-                                                  'Crop ID',
-                                                  cropId,
-                                                  Icons.grass,
-                                                ),
-                                                _buildDetailItem(
-                                                  'Quantity',
-                                                  quantity,
-                                                  Icons.shopping_cart,
-                                                ),
-                                                _buildDetailItem(
-                                                  'Price',
-                                                  currencyFormatter.format(
-                                                    double.tryParse(
-                                                          totalPrice,
-                                                        ) ??
-                                                        0.0,
+                                                );
+                                              }).toList(),
+                                              const Divider(height: 24),
+                                              // Total Price
+                                              Row(
+                                                children: [
+                                                  _buildDetailItem(
+                                                    'Total Price',
+                                                    currencyFormatter.format(
+                                                      double.tryParse(totalPrice) ?? 0.0,
+                                                    ),
+                                                    Icons.account_balance_wallet,
                                                   ),
-                                                  Icons.attach_money,
-                                                ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 16),
-                                            // Action Buttons
-                                            Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.end,
-                                              children: [
-                                                IconButton(
-                                                  icon: Icon(
-                                                    Icons.edit_outlined,
-                                                    color: primaryGreen,
+                                                  const Spacer(),
+                                                  IconButton(
+                                                    icon: const Icon(
+                                                      Icons.update,
+                                                      color: Colors.blue,
+                                                    ),
+                                                    tooltip: 'Update Status',
+                                                    onPressed: () {
+                                                      _showStatusUpdateDialog(
+                                                        orderId,
+                                                        orderStatus,
+                                                      );
+                                                    },
                                                   ),
-                                                  tooltip: 'Edit Order',
-                                                  onPressed: () {
-                                                    _customerIdController.text =
-                                                        customerId;
-                                                    _cropIdController.text =
-                                                        cropId;
-                                                    _quantityController.text =
-                                                        quantity;
-                                                    _totalPriceController.text =
-                                                        totalPrice;
-                                                    setState(() {
-                                                      _selectedOrderId =
-                                                          orderId;
-                                                    });
-                                                    _showForm(context);
-                                                  },
-                                                ),
-                                                IconButton(
-                                                  icon: const Icon(
-                                                    Icons.update,
-                                                    color: Colors.blue,
-                                                  ),
-                                                  tooltip: 'Update Status',
-                                                  onPressed: () {
-                                                    _showStatusUpdateDialog(
-                                                      orderId,
-                                                      orderStatus,
-                                                    );
-                                                  },
-                                                ),
-                                                IconButton(
-                                                  icon: const Icon(
-                                                    Icons.delete_outline,
-                                                    color: Colors.red,
-                                                  ),
-                                                  tooltip: 'Delete Order',
-                                                  onPressed: () {
-                                                    _showDeleteConfirmationDialog(
-                                                      orderId,
-                                                    );
-                                                  },
-                                                ),
-                                              ],
-                                            ),
-                                          ],
+                                                ],
+                                              ),
+                                            ],
+                                          ),
                                         ),
                                       ),
                                     ),
-                                  ),
-                                );
-                              },
-                            ),
+                                  );
+                                },
+                              ),
                   ),
                 ],
               ),

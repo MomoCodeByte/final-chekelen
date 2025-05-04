@@ -6,6 +6,7 @@ import './screens/Componets/welcome_screen.dart';
 import './screens/Componets/RegistrationScreen.dart';
 import './screens/Clients/product_list.dart';
 import './screens/Clients/product_details.dart';
+import './screens/Clients/cart_service.dart';
 import './screens/Farmer/dashboard.dart';
 import './screens/Admin/dashboard.dart';
 
@@ -29,6 +30,7 @@ class MyApp extends StatelessWidget {
         '/registration': (context) => RegistrationScreen(),
         '/admin': (context) => AdminDashboard(),
         '/farmer': (context) => FarmerDashboard(),
+        '/cart': (context) => CartScreen(), // Uncomment and add this
       },
       onGenerateRoute: (settings) {
         if (settings.name == '/details') {
@@ -41,25 +43,25 @@ class MyApp extends StatelessWidget {
                 args.containsKey('productName') &&
                 args.containsKey('price')) {
               return MaterialPageRoute(
-                builder: (context) => ProductDetailsScreen(
-                  productId: args['productId'] as int,
-                  farmerId: args['farmerId'] as int,
-                  productName: args['productName'] as String,
-                  price: args['price'] as String,
-                  isOrganic: args['isOrganic'] as bool? ?? false,
-                  isFresh: args['isFresh'] as bool? ?? false,
-                  categories: args['categories'] as String?,
-                ),
+                builder:
+                    (context) => ProductDetailsScreen(
+                      productId: args['productId'] as int,
+                      farmerId: args['farmerId'] as int,
+                      productName: args['productName'] as String,
+                      price: args['price'] as String,
+                      isOrganic: args['isOrganic'] as bool? ?? false,
+                      isFresh: args['isFresh'] as bool? ?? false,
+                      categories: args['categories'] as String?,
+                    ),
               );
             }
           }
           // Fallback for invalid arguments
           return MaterialPageRoute(
-            builder: (context) => Scaffold(
-              body: Center(
-                child: Text('Error: Invalid product details'),
-              ),
-            ),
+            builder:
+                (context) => Scaffold(
+                  body: Center(child: Text('Error: Invalid product details')),
+                ),
           );
         }
         return null; // Return null for undefined routes
@@ -112,7 +114,9 @@ class SplashScreen extends StatelessWidget {
     _checkToken(context);
     return Scaffold(
       body: Center(
-        child: CircularProgressIndicator(color: Color(0xFF2E7D32)), // Use primaryGreen
+        child: CircularProgressIndicator(
+          color: Color(0xFF2E7D32),
+        ), // Use primaryGreen
       ),
     );
   }

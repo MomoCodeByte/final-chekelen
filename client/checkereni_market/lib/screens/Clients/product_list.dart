@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import '../Componets/Login_screen.dart';
 import 'product_details.dart';
+import '../Componets/Login_screen.dart';
 
 // Model class for Crop products
 class Crop {
@@ -313,7 +313,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
   final String baseUrl = 'http://localhost:3000';
   bool _isAuthenticated = false;
 
-  // Custom Colors (aligned with TransactionScreen)
+  // Custom Colors
   final Color primaryGreen = const Color(0xFF2E7D32);
   final Color lightGreen = const Color(0xFF81C784);
   final Color backgroundColor = const Color(0xFFF5F5F5);
@@ -336,7 +336,6 @@ class _ProductListScreenState extends State<ProductListScreen> {
     final token = await _storage.read(key: 'jwt_token');
     setState(() => _isAuthenticated = token != null);
     if (token == null) {
-      // Allow public access to crops without redirecting
       await _fetchCrops();
     } else {
       await _fetchCrops(token: token);
@@ -363,7 +362,8 @@ class _ProductListScreenState extends State<ProductListScreen> {
       if (response.statusCode == 200) {
         final decoded = json.decode(response.body);
         if (decoded is List<dynamic>) {
-          final List<Crop> crops = decoded.map((data) => Crop.fromJson(data)).toList();
+          final List<Crop> crops =
+              decoded.map((data) => Crop.fromJson(data)).toList();
           setState(() {
             _allCrops = crops;
             _applyFilters();
@@ -383,7 +383,8 @@ class _ProductListScreenState extends State<ProductListScreen> {
         Navigator.pushReplacementNamed(context, '/login');
       } else {
         setState(() {
-          _errorMessage = 'Failed to load crops: ${response.statusCode}\n${response.body}';
+          _errorMessage =
+              'Failed to load crops: ${response.statusCode}\n${response.body}';
           _isLoading = false;
         });
         _showError('Failed to load crops: ${response.statusCode}');
@@ -400,33 +401,41 @@ class _ProductListScreenState extends State<ProductListScreen> {
   Future<void> _logout() async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Logout'),
-        content: Text('Are you sure you want to logout?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text('Cancel', style: TextStyle(color: Colors.grey[700])),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: primaryGreen,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      builder:
+          (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
             ),
-            child: Text('Logout'),
+            title: Text('Logout'),
+            content: Text('Are you sure you want to logout?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(color: Colors.grey[700]),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryGreen,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: Text('Logout'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
 
     if (confirm == true) {
       await _storage.delete(key: 'jwt_token');
       _showSuccess('Logged out successfully');
       setState(() => _isAuthenticated = false);
-      Navigator.pushReplacementNamed(context, '/login');
+      Navigator.pushReplacementNamed(context, '/welcome');
     }
   }
 
@@ -434,10 +443,14 @@ class _ProductListScreenState extends State<ProductListScreen> {
     List<Crop> filtered = List.from(_allCrops);
 
     if (_searchController.text.isNotEmpty) {
-      filtered = filtered
-          .where((crop) =>
-              crop.name.toLowerCase().contains(_searchController.text.toLowerCase()))
-          .toList();
+      filtered =
+          filtered
+              .where(
+                (crop) => crop.name.toLowerCase().contains(
+                  _searchController.text.toLowerCase(),
+                ),
+              )
+              .toList();
     }
 
     if (_selectedCategory != "All") {
@@ -469,9 +482,10 @@ class _ProductListScreenState extends State<ProductListScreen> {
       };
 
       List<String> categoryItems = categoryMapping[_selectedCategory] ?? [];
-      filtered = filtered
-          .where((crop) => categoryItems.contains(crop.name.toLowerCase()))
-          .toList();
+      filtered =
+          filtered
+              .where((crop) => categoryItems.contains(crop.name.toLowerCase()))
+              .toList();
     }
 
     if (_sortBy == "Bei") {
@@ -649,54 +663,68 @@ class _ProductListScreenState extends State<ProductListScreen> {
             ),
           ),
           Expanded(
-            child: _isLoading
-                ? Center(child: CircularProgressIndicator(color: primaryGreen))
-                : _errorMessage.isNotEmpty
+            child:
+                _isLoading
                     ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.error_outline, color: Colors.red, size: 48),
-                            SizedBox(height: 16),
-                            Text(_errorMessage, style: TextStyle(color: Colors.red)),
-                          ],
-                        ),
-                      )
-                    : _filteredCrops.isEmpty
-                        ? Center(child: Text("Hakuna bidhaa zinazopatikana"))
-                        : ListView.builder(
-                            itemCount: _filteredCrops.length,
-                            padding: EdgeInsets.only(top: 8, bottom: 20),
-                            itemBuilder: (context, index) {
-                              final crop = _filteredCrops[index];
-                              return ProductCard(
-                                crop: crop,
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => ProductDetailsScreen(
-                                        productId: crop.cropId,
-                                        farmerId: crop.farmerId ?? 0,
-                                        productName: crop.name,
-                                        price: crop.getFormattedPrice(),
-                                        isOrganic: crop.isOrganic,
-                                        isFresh: crop.isFresh,
-                                        categories: crop.categories,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              );
-                            },
+                      child: CircularProgressIndicator(color: primaryGreen),
+                    )
+                    : _errorMessage.isNotEmpty
+                    ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.error_outline,
+                            color: Colors.red,
+                            size: 48,
                           ),
+                          SizedBox(height: 16),
+                          Text(
+                            _errorMessage,
+                            style: TextStyle(color: Colors.red),
+                          ),
+                        ],
+                      ),
+                    )
+                    : _filteredCrops.isEmpty
+                    ? Center(child: Text("Hakuna bidhaa zinazopatikana"))
+                    : ListView.builder(
+                      itemCount: _filteredCrops.length,
+                      padding: EdgeInsets.only(top: 8, bottom: 20),
+                      itemBuilder: (context, index) {
+                        final crop = _filteredCrops[index];
+                        return ProductCard(
+                          crop: crop,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder:
+                                    (context) => ProductDetailsScreen(
+                                      productId: crop.cropId,
+                                      farmerId: crop.farmerId ?? 0,
+                                      productName: crop.name,
+                                      price: crop.getFormattedPrice(),
+                                      isOrganic: crop.isOrganic,
+                                      isFresh: crop.isFresh,
+                                      categories: crop.categories,
+                                    ),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {},
+        onPressed: () {
+          // Navigate to cart or order summary
+          Navigator.pushNamed(context, '/cart');
+        },
         backgroundColor: primaryGreen,
-        child: Icon(Icons.add_shopping_cart, color: Colors.white),
+        child: Icon(Icons.shopping_cart, color: Colors.white),
       ),
     );
   }

@@ -3,24 +3,25 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
-const JWT_SECRET = process.env.JWT_SECRET; // Use the secret from .env
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // Create user
 exports.createUser = async (req, res) => {
     const { username, password, role, email, phone } = req.body;
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
-        db.query('INSERT INTO users (username, password, role, email, phone) VALUES (?, ?, ?, ?, ?)', 
-                 [username, hashedPassword,'customer', email, phone], 
-                 (err, results) => {
-                     if (err) return res.status(500).send(err);
-                     res.status(201).json({ id: results.insertId });
-                 });
+        db.query(
+            'INSERT INTO users (username, password, role, email, phone) VALUES (?, ?, ?, ?, ?)', 
+            [username, hashedPassword, 'customer', email, phone], 
+            (err, results) => {
+                if (err) return res.status(500).send(err);
+                res.status(201).json({ id: results.insertId });
+            }
+        );
     } catch (error) {
         res.status(500).send('Error hashing password');
     }
 };
-
 
 // User login
 exports.loginUser = async (req, res) => {
@@ -32,41 +33,29 @@ exports.loginUser = async (req, res) => {
             return res.status(401).send('Email uliyo sajilia aipo');
         }
           
-        
         const user = results[0];
         const match = await bcrypt.compare(password, user.password);
      
         if (!match) {
             return res.status(401).send('email au password sio sahii');
         }
-        // console.log("nasubilia kujenerate token..")
-        // console.log(user.user_id);
 
-        const token = jwt.sign({ id: user.user_id, role: user.role },JWT_SECRET, { expiresIn: '1h' });
+        const token = jwt.sign({ id: user.user_id, role: user.role }, JWT_SECRET, { expiresIn: '1h' });
         res.json({ token });
-        console.log(token);
     });
-}; 
+};
 
-// Token blacklist - in a production app, use Redis or a database
+// Token blacklist (for logout)
 const tokenBlacklist = new Set();
 
-// Logout endpoint
+// Logout user
 exports.logout = (req, res) => {
     try {
-        // Get the token from authorization header
         const authHeader = req.headers.authorization;
         const token = authHeader && authHeader.split(' ')[1];
         
         if (token) {
-            // Add token to blacklist
             tokenBlacklist.add(token);
-            
-            // You might want to set an expiry for blacklisted tokens
-            // In a production app, you'd use Redis with TTL or
-            // a database with a scheduled cleanup job
-            
-            // For JWT with short expiry, you could also just let them expire naturally
         }
         
         res.status(200).json({ message: 'Logout successful' });
@@ -84,35 +73,108 @@ exports.getUsers = (req, res) => {
     });
 };
 
-// Get User by ID
+// Get user by ID
 exports.getUserById = (req, res) => {
     const { id } = req.params;
     db.query('SELECT * FROM users WHERE user_id = ?', [id], (err, results) => {
         if (err) return res.status(500).send(err);
+        if (results.length === 0) {
+            return res.status(404).send('User not found');
+        }
         res.json(results[0]);
     });
 };
 
-// Update user
+
 exports.updateUser = async (req, res) => {
-    const { id } = req.params;
-    const { username, password, role, email, phone } = req.body;
-    let hashedPassword = password;
-
-    if (password) {
-        try {
-            hashedPassword = await bcrypt.hash(password, 10);
-        } catch (error) {
-            return res.status(500).send('Error hashing password');
+    try {
+        const { id } = req.params;
+        const { username, password, role, email, phone } = req.body;
+        
+        // Validate input
+        if (!id || !username || !email) {
+            return res.status(400).json({ error: 'Missing required fields' });
         }
-    }
+        
+        // Validate role
+        const validRoles = ['customer', 'farmer', 'admin'];
+        if (role && !validRoles.includes(role)) {
+            return res.status(400).json({ error: 'Invalid role' });
+        }
+        
+        // Check if user exists
+        const userExists = await new Promise((resolve, reject) => {
+            db.query('SELECT * FROM users WHERE user_id = ?', [id], (err, results) => {
+                if (err) return reject(err);
+                resolve(results.length > 0 ? results[0] : null);
+            });
+        });
+        
+        if (!userExists) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        
+        // Prepare update parameters
+        let queryParams = [username, email, phone, id];
+        let query = 'UPDATE users SET username = ?, email = ?, phone = ?';
+        
+        // If password is provided, hash it and update
+        if (password) {
+            const hashedPassword = await bcrypt.hash(password, 10);
+            query += ', password = ?';
+            queryParams.splice(3, 0, hashedPassword); // Insert password before id
+        }
 
-    db.query('UPDATE users SET username = ?, password = ?, role = ?, email = ?, phone = ? WHERE user_id = ?', 
-             [username, hashedPassword, role, email, phone, id], 
-             (err, results) => {
-                 if (err) return res.status(500).send(err);
-                 res.json({ message: 'User updated successfully.' });
-             });
+        // Update role only if it's valid and provided
+        if (role) {
+            query += ', role = ?';
+            queryParams.push(role); // Add role to parameters
+        }
+
+        query += ' WHERE user_id = ?';
+        
+        db.query(query, queryParams, (err, results) => {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ 
+                success: true, 
+                message: 'User updated successfully.',
+                user: { id, username, role: role || userExists.role, email, phone }
+            });
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+
+// Get users by role
+exports.getUserRoles = (req, res) => {
+    const { role } = req.params;
+    
+    // Validate role parameter
+    if (!role) {
+        return res.status(400).json({ error: 'Role parameter is required' });
+    }
+    
+    // Validate that the role is one of the allowed values
+    const validRoles = ['customer', 'farmer', 'admin'];
+    if (!validRoles.includes(role)) {
+        return res.status(400).json({ error: 'Invalid role. Must be customer, farmer, or admin' });
+    }
+    
+    db.query('SELECT * FROM users WHERE role = ?', [role], (err, results) => {
+        if (err) {
+            console.error('Error fetching users by role:', err);
+            return res.status(500).json({ error: 'Database error' });
+        }
+        
+        if (results.length === 0) {
+            return res.status(200).json({ message: `No users found with role: ${role}`, users: [] });
+        }
+        
+        // Return users with the specified role
+        res.status(200).json(results);
+    });
 };
 
 // Delete user

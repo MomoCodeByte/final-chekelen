@@ -3,11 +3,16 @@ const router = express.Router();
 const cropController = require('../controllers/cropController');
 
 // Routes
-router.post('/', cropController.createCrop); // Multer is now handled in the controller
-router.get('/', cropController.getCrops);
-router.get('/:id', cropController.getCropById);
-router.put('/:id', cropController.updateCrop); // Multer is now handled in the controller
-router.delete('/:id', cropController.deleteCrop);
+const { auth } = require('../middleware/auth');
+
+// router.get('/', cropController.getCrops);
+router.get('/public', cropController.getPublicCrops);
+router.post('/', auth, cropController.createCrop);
+router.get('/', auth, cropController.getCrops);
+router.get('/:id', auth, cropController.getCropById);
+router.put('/:id', auth, cropController.updateCrop);
+router.delete('/:id', auth, cropController.deleteCrop);
+
 
 // Remove the separate upload route as it's now integrated
 module.exports = router;

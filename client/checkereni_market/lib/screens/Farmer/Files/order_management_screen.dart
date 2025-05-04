@@ -14,14 +14,10 @@ class OrderManagementScreen extends StatefulWidget {
 
 class _OrderManagementScreenState extends State<OrderManagementScreen>
     with SingleTickerProviderStateMixin {
-  List<dynamic> orders = [];
-  List<dynamic> filteredOrders = [];
-  final TextEditingController _customerIdController = TextEditingController();
-  final TextEditingController _cropIdController = TextEditingController();
-  final TextEditingController _quantityController = TextEditingController();
-  final TextEditingController _totalPriceController = TextEditingController();
+  List<Map<String, dynamic>> orders = [];
+  List<Map<String, dynamic>> filteredOrders = [];
   final TextEditingController _searchController = TextEditingController();
-
+  final TextEditingController _customerIdController = TextEditingController();
   String? _selectedOrderId;
   String? _selectedOrderStatus;
   String? _statusFilter;
@@ -30,10 +26,13 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
   late AnimationController _animationController;
   final currencyFormatter = NumberFormat.currency(symbol: 'Tsh: ');
 
+  // List to store multiple order items in the form
+  List<Map<String, TextEditingController>> orderItems = [];
+
   // Secure storage for JWT token
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
-  // Change this to your server URL
+  // Server URL (update for production)
   final String baseUrl =
       'http://localhost:3000'; // Use 10.0.2.2 for Android emulator
 
@@ -51,6 +50,7 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
       duration: const Duration(milliseconds: 300),
     );
     _searchController.addListener(_filterOrders);
+    _addOrderItem(); // Initialize with one order item
     _checkSessionAndFetchOrders();
   }
 
@@ -60,10 +60,33 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
     _searchController.removeListener(_filterOrders);
     _searchController.dispose();
     _customerIdController.dispose();
-    _cropIdController.dispose();
-    _quantityController.dispose();
-    _totalPriceController.dispose();
+    for (var item in orderItems) {
+      item['crop_id']!.dispose();
+      item['quantity']!.dispose();
+      item['unit_price']!.dispose();
+    }
     super.dispose();
+  }
+
+  // Add a new order item to the form
+  void _addOrderItem() {
+    setState(() {
+      orderItems.add({
+        'crop_id': TextEditingController(),
+        'quantity': TextEditingController(),
+        'unit_price': TextEditingController(),
+      });
+    });
+  }
+
+  // Remove an order item from the form
+  void _removeOrderItem(int index) {
+    setState(() {
+      orderItems[index]['crop_id']!.dispose();
+      orderItems[index]['quantity']!.dispose();
+      orderItems[index]['unit_price']!.dispose();
+      orderItems.removeAt(index);
+    });
   }
 
   // Check for token and fetch orders, redirect to login if no token
@@ -86,12 +109,9 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
                 order['order_id'].toString().contains(_searchController.text) ||
                 order['customer_id'].toString().contains(
                   _searchController.text,
-                ) ||
-                order['crop_id'].toString().contains(_searchController.text);
-
+                );
             final statusMatch =
                 _statusFilter == null || order['order_status'] == _statusFilter;
-
             return searchMatch && statusMatch;
           }).toList();
     });
@@ -117,8 +137,34 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
       );
 
       if (response.statusCode == 200) {
+        final List<dynamic> rawOrders = json.decode(response.body);
+        final Map<String, Map<String, dynamic>> groupedOrders = {};
+
+        for (var item in rawOrders) {
+          final orderId = item['order_id'].toString();
+          if (!groupedOrders.containsKey(orderId)) {
+            groupedOrders[orderId] = {
+              'order_id': item['order_id'].toString(),
+              'customer_id': item['customer_id']?.toString() ?? 'N/A',
+              'total_price': item['total_price']?.toString() ?? '0.00',
+              'order_status': item['order_status'] ?? 'pending',
+              'created_at': item['created_at'] ?? '',
+              'items': [],
+            };
+          }
+          if (item['order_item_id'] != null) {
+            groupedOrders[orderId]!['items'].add({
+              'order_item_id': item['order_item_id'].toString(),
+              'crop_id': item['crop_id']?.toString() ?? 'N/A',
+              'quantity': item['quantity']?.toString() ?? '0',
+              'unit_price': item['unit_price']?.toString() ?? '0.00',
+              'crop_name': item['crop_name'] ?? 'Unknown Crop',
+            });
+          }
+        }
+
         setState(() {
-          orders = json.decode(response.body);
+          orders = groupedOrders.values.toList();
           _filterOrders();
         });
       } else if (response.statusCode == 401) {
@@ -149,6 +195,16 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
         return;
       }
 
+      // Prepare order items payload
+      final orderItemsPayload =
+          orderItems.map((item) {
+            return {
+              'crop_id': int.tryParse(item['crop_id']!.text) ?? 0,
+              'quantity': int.tryParse(item['quantity']!.text) ?? 0,
+              'unit_price': double.tryParse(item['unit_price']!.text) ?? 0.0,
+            };
+          }).toList();
+
       final response = await http.post(
         Uri.parse('$baseUrl/api/orders'),
         headers: {
@@ -157,9 +213,7 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
         },
         body: json.encode({
           'customer_id': int.tryParse(_customerIdController.text) ?? 0,
-          'crop_id': int.tryParse(_cropIdController.text) ?? 0,
-          'quantity': int.tryParse(_quantityController.text) ?? 0,
-          'total_price': double.tryParse(_totalPriceController.text) ?? 0.0,
+          'order_items': orderItemsPayload,
         }),
       );
 
@@ -167,13 +221,10 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
         await fetchOrders();
         _clearFields();
         _showSuccess('Order created successfully!');
-      } else if (response.statusCode == 401) {
-        _showError('Session expired. Please log in again.');
-        await _storage.delete(key: 'jwt_token');
-        Navigator.pushReplacementNamed(context, '/login');
       } else {
+        final errorBody = json.decode(response.body);
         _showError(
-          'Failed to create order: ${response.statusCode}\n${response.body}',
+          'Failed to create order: ${errorBody['error'] ?? response.body}',
         );
       }
     } catch (e) {
@@ -195,6 +246,16 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
         return;
       }
 
+      // Prepare order items payload
+      final orderItemsPayload =
+          orderItems.map((item) {
+            return {
+              'crop_id': int.tryParse(item['crop_id']!.text) ?? 0,
+              'quantity': int.tryParse(item['quantity']!.text) ?? 0,
+              'unit_price': double.tryParse(item['unit_price']!.text) ?? 0.0,
+            };
+          }).toList();
+
       final response = await http.put(
         Uri.parse('$baseUrl/api/orders/$id'),
         headers: {
@@ -203,9 +264,7 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
         },
         body: json.encode({
           'customer_id': int.parse(_customerIdController.text),
-          'crop_id': int.parse(_cropIdController.text),
-          'quantity': int.parse(_quantityController.text),
-          'total_price': double.parse(_totalPriceController.text),
+          'order_items': orderItemsPayload,
         }),
       );
 
@@ -218,8 +277,9 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
         await _storage.delete(key: 'jwt_token');
         Navigator.pushReplacementNamed(context, '/login');
       } else {
+        final errorBody = json.decode(response.body);
         _showError(
-          'Failed to update order: ${response.statusCode}\n${response.body}',
+          'Failed to update order: ${errorBody['error'] ?? response.body}',
         );
       }
     } catch (e) {
@@ -256,8 +316,9 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
         await _storage.delete(key: 'jwt_token');
         Navigator.pushReplacementNamed(context, '/login');
       } else {
+        final errorBody = json.decode(response.body);
         _showError(
-          'Failed to update order status: ${response.statusCode}\n${response.body}',
+          'Failed to update order status: ${errorBody['error'] ?? response.body}',
         );
       }
     } catch (e) {
@@ -293,8 +354,9 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
         await _storage.delete(key: 'jwt_token');
         Navigator.pushReplacementNamed(context, '/login');
       } else {
+        final errorBody = json.decode(response.body);
         _showError(
-          'Failed to delete order: ${response.statusCode}\n${response.body}',
+          'Failed to delete order: ${errorBody['error'] ?? response.body}',
         );
       }
     } catch (e) {
@@ -346,12 +408,16 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
 
   void _clearFields() {
     _customerIdController.clear();
-    _cropIdController.clear();
-    _quantityController.clear();
-    _totalPriceController.clear();
+    for (var item in orderItems) {
+      item['crop_id']!.clear();
+      item['quantity']!.clear();
+      item['unit_price']!.clear();
+    }
     setState(() {
       _selectedOrderId = null;
       _selectedOrderStatus = null;
+      orderItems.clear();
+      _addOrderItem(); // Reset to one empty item
     });
   }
 
@@ -405,7 +471,7 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
           ),
           backgroundColor: Colors.white,
           title: Text(
-            _selectedOrderId == null ? 'Create Order' : 'Update Order',
+            _selectedOrderId == null ? 'Create Order' : 'Edit Order',
             style: TextStyle(color: primaryGreen, fontWeight: FontWeight.bold),
           ),
           content: SingleChildScrollView(
@@ -414,32 +480,144 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  Text(
+                    'Enter customer ID and order items below. Ask a customer for their ID if unsure.',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                  ),
+                  const SizedBox(height: 16),
                   _buildFormField(
                     _customerIdController,
                     'Customer ID',
                     Icons.person,
                     TextInputType.number,
+                    'Enter the customer\'s unique ID (e.g., 123).',
+                    validator: (value) {
+                      if (value == null || value.isEmpty)
+                        return 'Customer ID is required';
+                      if (int.tryParse(value) == null ||
+                          int.parse(value) <= 0) {
+                        return 'Enter a valid positive number';
+                      }
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 16),
-                  _buildFormField(
-                    _cropIdController,
-                    'Crop ID',
-                    Icons.grass,
-                    TextInputType.number,
+                  Text(
+                    'Order Items:',
+                    style: TextStyle(
+                      color: Colors.grey[800],
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  ...orderItems.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final item = entry.value;
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Item ${index + 1}',
+                                style: TextStyle(
+                                  color: Colors.grey[700],
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                            if (orderItems.length > 1)
+                              IconButton(
+                                icon: Icon(
+                                  Icons.remove_circle,
+                                  color: Colors.red,
+                                ),
+                                onPressed: () => _removeOrderItem(index),
+                                tooltip: 'Remove Item',
+                              ),
+                          ],
+                        ),
+                        _buildFormField(
+                          item['crop_id']!,
+                          'Crop ID',
+                          Icons.grass,
+                          TextInputType.number,
+                          'Enter your crop\'s ID (e.g., 456). Check your crop list if unsure.',
+                          validator: (value) {
+                            if (value == null || value.isEmpty)
+                              return 'Crop ID is required';
+                            if (int.tryParse(value) == null ||
+                                int.parse(value) <= 0) {
+                              return 'Enter a valid positive number';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        _buildFormField(
+                          item['quantity']!,
+                          'Quantity',
+                          Icons.shopping_cart,
+                          TextInputType.number,
+                          'Enter how many units (e.g., 10).',
+                          validator: (value) {
+                            if (value == null || value.isEmpty)
+                              return 'Quantity is required';
+                            if (int.tryParse(value) == null ||
+                                int.parse(value) <= 0) {
+                              return 'Enter a valid positive number';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        _buildFormField(
+                          item['unit_price']!,
+                          'Unit Price',
+                          Icons.attach_money,
+                          const TextInputType.numberWithOptions(decimal: true),
+                          'Enter the price per unit (e.g., 500.50).',
+                          validator: (value) {
+                            if (value == null || value.isEmpty)
+                              return 'Unit price is required';
+                            if (double.tryParse(value) == null ||
+                                double.parse(value) <= 0) {
+                              return 'Enter a valid positive number';
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
+                    );
+                  }).toList(),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: _addOrderItem,
+                    icon: Icon(Icons.add, color: Colors.white),
+                    label: Text(
+                      'Add Another Item',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryGreen,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 16),
-                  _buildFormField(
-                    _quantityController,
-                    'Quantity',
-                    Icons.shopping_cart,
-                    TextInputType.number,
-                  ),
-                  const SizedBox(height: 16),
-                  _buildFormField(
-                    _totalPriceController,
-                    'Total Price',
-                    Icons.attach_money,
-                    const TextInputType.numberWithOptions(decimal: true),
+                  Text(
+                    'Preview: Customer ${_customerIdController.text.isEmpty ? 'N/A' : _customerIdController.text} will order:\n' +
+                        orderItems
+                            .asMap()
+                            .entries
+                            .map(
+                              (entry) =>
+                                  '- ${entry.value['quantity']?.text ?? '0'} units of Crop ${entry.value['crop_id']?.text ?? 'N/A'} at Tsh: ${entry.value['unit_price']?.text ?? '0.00'} each',
+                            )
+                            .join('\n'),
+                    style: TextStyle(color: Colors.grey[700]),
                   ),
                 ],
               ),
@@ -468,7 +646,7 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              child: const Text('Submit'),
+              child: Text(_selectedOrderId == null ? 'Create' : 'Save'),
             ),
           ],
         );
@@ -481,34 +659,40 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
     String label,
     IconData icon,
     TextInputType keyboardType,
-  ) {
-    return TextFormField(
-      controller: controller,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon, color: primaryGreen),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: lightGreen),
+    String tooltip, {
+    String? Function(String?)? validator,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: TextFormField(
+        controller: controller,
+        decoration: InputDecoration(
+          labelText: label,
+          prefixIcon: Icon(icon, color: primaryGreen),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: lightGreen),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: primaryGreen, width: 2),
+          ),
+          filled: true,
+          fillColor: Colors.grey[50],
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: primaryGreen, width: 2),
-        ),
-        filled: true,
-        fillColor: Colors.grey[50],
+        keyboardType: keyboardType,
+        validator:
+            validator ??
+            (value) {
+              if (value == null || value.isEmpty)
+                return 'This field is required';
+              if (keyboardType == TextInputType.number &&
+                  double.tryParse(value) == null) {
+                return 'Enter a valid number';
+              }
+              return null;
+            },
       ),
-      keyboardType: keyboardType,
-      validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'This field is required';
-        }
-        if (keyboardType == TextInputType.number &&
-            double.tryParse(value) == null) {
-          return 'Enter a valid number';
-        }
-        return null;
-      },
     );
   }
 
@@ -557,7 +741,10 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
                 ),
               ),
               const SizedBox(height: 24),
-              Text('New Status:', style: TextStyle(color: Colors.grey[600])),
+              Text(
+                'New Status (choose the next step):',
+                style: TextStyle(color: Colors.grey[600]),
+              ),
               const SizedBox(height: 8),
               Container(
                 width: double.infinity,
@@ -570,7 +757,7 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     value: _selectedOrderStatus,
-                    hint: const Text('Select new status'),
+                    hint: const Text('Select next step'),
                     isExpanded: true,
                     icon: const Icon(Icons.arrow_drop_down_circle),
                     iconEnabledColor: primaryGreen,
@@ -580,7 +767,7 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
                               'processed',
                               'shipped',
                               'delivered',
-                              'canceled',
+                              'cancelled',
                             ]
                             .map(
                               (status) => DropdownMenuItem(
@@ -655,7 +842,10 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
             borderRadius: BorderRadius.circular(16),
           ),
           title: const Text('Confirm Deletion'),
-          content: Text('Are you sure you want to delete Order #$orderId?'),
+          content: Text(
+            'Are you sure you want to delete Order #$orderId? This cannot be undone.',
+            style: TextStyle(color: Colors.grey[700]),
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
@@ -688,15 +878,15 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
         return Colors.purple;
       case 'delivered':
         return Colors.green;
-      case 'canceled':
+      case 'cancelled':
         return Colors.red;
       default:
-        return Colors.grey; // Fallback for invalid or unknown statuses
+        return Colors.grey;
     }
   }
 
   Widget _buildOrderStatusChip(String? status) {
-    final safeStatus = status ?? 'pending'; // Default to 'pending' for null
+    final safeStatus = status ?? 'pending';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
@@ -802,23 +992,19 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
                     ),
                     child: Column(
                       children: [
-                        // Search field
                         TextField(
                           controller: _searchController,
                           decoration: InputDecoration(
-                            hintText: 'Search orders...',
+                            hintText:
+                                'Search orders (e.g., order or customer ID)...',
                             prefixIcon: Icon(Icons.search, color: primaryGreen),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: const Color.fromARGB(255, 255, 254, 254),
-                              ),
+                              borderSide: BorderSide(color: Colors.grey[200]!),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: const Color.fromARGB(255, 255, 254, 254),
-                              ),
+                              borderSide: BorderSide(color: Colors.grey[200]!),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -832,7 +1018,6 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
                           ),
                         ),
                         const SizedBox(height: 16),
-                        // Status filter chips
                         SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
                           child: Row(
@@ -842,7 +1027,7 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
                               _buildFilterChip('Processed', 'processed'),
                               _buildFilterChip('Shipped', 'shipped'),
                               _buildFilterChip('Delivered', 'delivered'),
-                              _buildFilterChip('Canceled', 'canceled'),
+                              _buildFilterChip('Cancelled', 'cancelled'),
                             ],
                           ),
                         ),
@@ -873,9 +1058,7 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
                             },
                             child: Text(
                               'Clear Filters',
-                              style: TextStyle(
-                                color: const Color.fromARGB(255, 113, 101, 221),
-                              ),
+                              style: TextStyle(color: Colors.blue),
                             ),
                           ),
                       ],
@@ -913,7 +1096,7 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
                                   Text(
                                     _statusFilter != null
                                         ? 'Try changing your filter'
-                                        : 'Create a new order to get started',
+                                        : 'Add an order to get started',
                                     style: TextStyle(color: Colors.grey[500]),
                                   ),
                                 ],
@@ -923,18 +1106,14 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
                               itemCount: filteredOrders.length,
                               itemBuilder: (context, index) {
                                 final order = filteredOrders[index];
-                                final orderId =
-                                    order['order_id']?.toString() ?? 'N/A';
+                                final orderId = order['order_id'] ?? 'N/A';
                                 final customerId =
-                                    order['customer_id']?.toString() ?? 'N/A';
-                                final cropId =
-                                    order['crop_id']?.toString() ?? 'N/A';
-                                final quantity =
-                                    order['quantity']?.toString() ?? '0';
+                                    order['customer_id'] ?? 'N/A';
                                 final totalPrice =
-                                    order['total_price']?.toString() ?? '0.00';
+                                    order['total_price'] ?? '0.00';
                                 final orderStatus =
                                     order['order_status'] ?? 'pending';
+                                final items = order['items'] as List<dynamic>;
 
                                 return Container(
                                   margin: const EdgeInsets.only(bottom: 12),
@@ -1012,37 +1191,53 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
                                               ],
                                             ),
                                             const Divider(height: 24),
-                                            // Order Details
+                                            // Order Items
+                                            ...items.map((item) {
+                                              return Padding(
+                                                padding: const EdgeInsets.only(
+                                                  bottom: 12,
+                                                ),
+                                                child: Row(
+                                                  children: [
+                                                    _buildDetailItem(
+                                                      'Crop',
+                                                      '${item['crop_name']} (ID: ${item['crop_id']})',
+                                                      Icons.grass,
+                                                    ),
+                                                    _buildDetailItem(
+                                                      'Quantity',
+                                                      item['quantity'],
+                                                      Icons.shopping_cart,
+                                                    ),
+                                                    _buildDetailItem(
+                                                      'Unit Price',
+                                                      currencyFormatter.format(
+                                                        double.tryParse(
+                                                              item['unit_price'],
+                                                            ) ??
+                                                            0.0,
+                                                      ),
+                                                      Icons.attach_money,
+                                                    ),
+                                                  ],
+                                                ),
+                                              );
+                                            }).toList(),
+                                            const Divider(height: 24),
+                                            // Total Price and Actions
                                             Row(
                                               children: [
                                                 _buildDetailItem(
-                                                  'Crop ID',
-                                                  cropId,
-                                                  Icons.grass,
-                                                ),
-                                                _buildDetailItem(
-                                                  'Quantity',
-                                                  quantity,
-                                                  Icons.shopping_cart,
-                                                ),
-                                                _buildDetailItem(
-                                                  'Price',
+                                                  'Total Price',
                                                   currencyFormatter.format(
                                                     double.tryParse(
                                                           totalPrice,
                                                         ) ??
                                                         0.0,
                                                   ),
-                                                  Icons.attach_money,
+                                                  Icons.account_balance_wallet,
                                                 ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 16),
-                                            // Action Buttons
-                                            Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.end,
-                                              children: [
+                                                const Spacer(),
                                                 IconButton(
                                                   icon: Icon(
                                                     Icons.edit_outlined,
@@ -1052,15 +1247,29 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
                                                   onPressed: () {
                                                     _customerIdController.text =
                                                         customerId;
-                                                    _cropIdController.text =
-                                                        cropId;
-                                                    _quantityController.text =
-                                                        quantity;
-                                                    _totalPriceController.text =
-                                                        totalPrice;
                                                     setState(() {
                                                       _selectedOrderId =
                                                           orderId;
+                                                      orderItems.clear();
+                                                      items.forEach((item) {
+                                                        orderItems.add({
+                                                          'crop_id':
+                                                              TextEditingController(
+                                                                text:
+                                                                    item['crop_id'],
+                                                              ),
+                                                          'quantity':
+                                                              TextEditingController(
+                                                                text:
+                                                                    item['quantity'],
+                                                              ),
+                                                          'unit_price':
+                                                              TextEditingController(
+                                                                text:
+                                                                    item['unit_price'],
+                                                              ),
+                                                        });
+                                                      });
                                                     });
                                                     _showForm(context);
                                                   },
@@ -1112,7 +1321,6 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
 
   Widget _buildFilterChip(String label, String? value) {
     final isSelected = _statusFilter == value;
-
     return GestureDetector(
       onTap: () {
         setState(() {

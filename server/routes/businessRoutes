@@ -1,0 +1,13 @@
+const express = require('express');
+const router = express.Router();
+const { auth } = require('../middleware/auth');
+const businessController = require('../controllers/businnesController');
+
+
+router.get('/users', auth, businessController.getUsersReport);
+router.get('/orders', auth, businessController.getOrdersReport);
+router.get('/transactions', auth, businessController.getTransactionsReport);
+router.get('/crops', auth, businessController.getCropsReport);
+router.get('/daily-orders', auth, businessController.getDailyOrders);
+
+module.exports = router;

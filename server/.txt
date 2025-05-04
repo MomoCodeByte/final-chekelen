@@ -16,7 +16,7 @@ CREATE TABLE crops (
     crop_id INT PRIMARY KEY AUTO_INCREMENT,
     farmer_id INT,
     name VARCHAR(255) NOT NULL,
-    description TEXT,
+    categories VARCHAR(100),
     price DECIMAL(10, 2) NOT NULL,
     availability BOOLEAN DEFAULT TRUE,
     FOREIGN KEY (farmer_id) REFERENCES users(user_id)
@@ -185,6 +185,14 @@ http://localhost:3000/api/settings  => get all settings
  http://localhost:3000/api/settings/1 => update settings
  http://localhost:3000/api/settings/1 => delete settings
 
+ 
+ http://localhost:3000/api/users  =>create users
+http://localhost:3000/api/users  => get all users
+ http://localhost:3000/api/users/1 => get users by id
+ http://localhost:3000/api/users/1 => update users
+ http://localhost:3000/api/users/1 => delete users
+
+
  reports
 
  http://localhost:3000/api/ reports  =>create  reports
@@ -200,3 +208,34 @@ http://localhost:3000/api/ reports  => get all  reports
  http://localhost:3000/api/chat/1 => get  chat by id
  http://localhost:3000/api/chat/1 => update  chat
  http://localhost:3000/api/chat/1 => delete  chat
+
+
+ // API FOR USER LIPORT (BUSINESS LOGICS)
+ http://localhost:3000/api/business/users => ALL USER BASED ON ROLES{Customer, Admin, Farmer} BY COUNT 
+ Endpoint	                       Description
+GET /api/business/users	          =>How many users per role
+GET /api/business/orders          =>How many orders by status
+GET /api/business/transactions	  =>Total sales from completed, faileda and pedding transactions
+GET /api/business/crops	          =>How many active crops
+GET /api/business/daily-orders	  =>How many orders today
+
+  crops api
+ http://localhost:3000/api/crops  =>create users
+ http://localhost:3000/api/crops   => get all users
+ http://localhost:3000/api/crops/1 => get users by id
+ http://localhost:3000/api/crops/1 => update users
+ http://localhost:3000/api/crops/1 => delete users
+
+ order API
+  http://localhost:3000/api/orders  =>create orders
+ http://localhost:3000/api/orders   => get all orders
+ http://localhost:3000/api/orders/1 => get orders by id
+ http://localhost:3000/api/orders/1 => update orders
+ http://localhost:3000/api/orders/1 => delete orders
+ http://localhost:3000/api/orders/1/status => update orders by status
+
+
+ API FOR REPORT
+  http://localhost:3000/api/orders   => get all orders
+   http://localhost:3000/api/crops   => get all crops
+    http://localhost:3000/api/transactions   => get all transactions

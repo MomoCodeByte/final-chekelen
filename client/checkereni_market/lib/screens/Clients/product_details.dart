@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../Componets/Login_screen.dart';
 import '../Componets/chat_screen.dart';
 
-class ProductDetailsScreen extends StatelessWidget {
-  // Added new parameters for product ID and farmer ID
+class ProductDetailsScreen extends StatefulWidget {
   final int productId;
   final int farmerId;
   final String productName;
@@ -24,10 +26,213 @@ class ProductDetailsScreen extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    // Get emoji for product
-    String productEmoji = _getProductEmoji(productName);
+  _ProductDetailsScreenState createState() => _ProductDetailsScreenState();
+}
 
+class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  bool _isLoading = false;
+  int _quantity = 1;
+
+  Future<void> _addToCart() async {
+    setState(() => _isLoading = true);
+    final token = await _storage.read(key: 'jwt_token');
+    if (token == null) {
+      _showError('Please log in to add to cart.');
+      Navigator.pushNamed(context, '/login');
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    try {
+      final response = await http.post(
+        Uri.parse('http://localhost:3000/api/cart'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: json.encode({'crop_id': widget.productId, 'quantity': _quantity}),
+      );
+
+      if (response.statusCode == 201) {
+        _showSuccess('Item added to cart');
+      } else if (response.statusCode == 400) {
+        _showError('Invalid crop or quantity');
+      } else if (response.statusCode == 403) {
+        _showError('Only customers can add to cart');
+      } else {
+        _showError(
+          'Failed to add to cart: ${response.statusCode} - ${response.body}',
+        );
+      }
+    } catch (e) {
+      _showError('Error: $e');
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _placeOrder() async {
+    setState(() => _isLoading = true);
+    final token = await _storage.read(key: 'jwt_token');
+    if (token == null) {
+      _showError('Please log in to place an order.');
+      Navigator.pushNamed(context, '/login');
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    try {
+      final response = await http.post(
+        Uri.parse('http://localhost:3000/api/orders/checkout'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 201) {
+        final data = json.decode(response.body);
+        _showSuccess(
+          'Order placed successfully! Order ID: ${data['order_id']}',
+        );
+        Navigator.pushNamed(context, '/orders'); // Navigate to OrdersScreen
+      } else if (response.statusCode == 400) {
+        _showError('Cart is empty or contains unavailable items');
+      } else if (response.statusCode == 403) {
+        _showError('Only customers can checkout');
+      } else {
+        _showError(
+          'Failed to place order: ${response.statusCode} - ${response.body}',
+        );
+      }
+    } catch (e) {
+      _showError('Error: $e');
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red.shade400),
+    );
+  }
+
+  void _showSuccess(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.green.shade700),
+    );
+  }
+
+  String _getProductEmoji(String name) {
+    Map<String, String> emojiMap = {
+      "mahindi": "🌽",
+      "mpunga": "🌾",
+      "maharage": "🫘",
+      "ndizi": "🍌",
+      "nyanya": "🍅",
+      "vitunguu": "🧅",
+      "pilipili": "🌶️",
+      "maembe": "🥭",
+      "mapara chichi": "🥑",
+      "mapera": "🍐",
+      "matikiti maji": "🍉",
+      "pilipili hoho": "🍎",
+      "karafuu": "🌿",
+      "machungwa": "🍊",
+      "ma aple": "🍏",
+      "mdalasini": "🌱",
+      "mapapai": "🍐",
+    };
+    return emojiMap[name.toLowerCase()] ?? "🥬";
+  }
+
+  String _getProductOrigin(String name) {
+    Map<String, String> originMap = {
+      "mahindi": "Mbeya",
+      "mpunga": "Morogoro",
+      "maharage": "Arusha",
+      "viazi": "Iringa",
+      "ndizi": "Kilimanjaro",
+      "nyanya": "Iringa",
+      "vitunguu": "Singida",
+      "pilipili": "Tanga",
+      "maembe": "Morogoro",
+      "mapara chichi": "Mbeya",
+    };
+    return originMap[name.toLowerCase()] ?? "Tanzania";
+  }
+
+  String _getProductSeason(String name) {
+    Map<String, String> seasonMap = {
+      "mahindi": "Jan - Mar",
+      "mpunga": "Mar - Jun",
+      "maharage": "Apr - Jul",
+      "viazi": "Msimu-Mwaka jana",
+      "ndizi": "Msimu-Mwaka huu",
+      "nyanya": "Sep - Dec",
+      "vitunguu": "Feb - May",
+      "pilipili": "Jan - Dec",
+    };
+    return seasonMap[name.toLowerCase()] ?? "Mwaka huu";
+  }
+
+  Widget _buildFeatureRow(IconData icon, String text) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: Colors.green.shade700),
+          SizedBox(width: 12),
+          Text(text, style: TextStyle(fontSize: 16, color: Colors.black87)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButton(
+    String text,
+    Color color,
+    IconData icon,
+    VoidCallback onPressed,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.2),
+            blurRadius: 10,
+            spreadRadius: 0,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ElevatedButton.icon(
+        onPressed: _isLoading ? null : onPressed,
+        icon: Icon(icon),
+        label: Text(
+          text,
+          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color,
+          foregroundColor: Colors.white,
+          padding: EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          elevation: 0,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       extendBodyBehindAppBar: true,
@@ -48,7 +253,6 @@ class ProductDetailsScreen extends StatelessWidget {
       ),
       body: Column(
         children: [
-          // Product Hero Image Section
           Container(
             height: MediaQuery.of(context).size.height * 0.35,
             width: double.infinity,
@@ -74,26 +278,20 @@ class ProductDetailsScreen extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(productEmoji, style: TextStyle(fontSize: 80)),
+                Text(
+                  _getProductEmoji(widget.productName),
+                  style: TextStyle(fontSize: 80),
+                ),
                 SizedBox(height: 16),
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    productName,
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
+                Text(
+                  widget.productName,
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
                   ),
                 ),
-                SizedBox(height: 8),
-                // Added category display
-                if (categories != null)
+                if (widget.categories != null)
                   Container(
                     padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
@@ -101,25 +299,19 @@ class ProductDetailsScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(15),
                     ),
                     child: Text(
-                      categories!,
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.white,
-                      ),
+                      widget.categories!,
+                      style: TextStyle(fontSize: 16, color: Colors.white),
                     ),
                   ),
               ],
             ),
           ),
-
-          // Product Details Section
           Expanded(
             child: SingleChildScrollView(
               padding: EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Product ID and Farmer ID info
                   Container(
                     margin: EdgeInsets.only(bottom: 16),
                     padding: EdgeInsets.all(12),
@@ -130,7 +322,6 @@ class ProductDetailsScreen extends StatelessWidget {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // Product ID
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -142,7 +333,7 @@ class ProductDetailsScreen extends StatelessWidget {
                               ),
                             ),
                             Text(
-                              "#$productId",
+                              "#${widget.productId}",
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
@@ -151,7 +342,6 @@ class ProductDetailsScreen extends StatelessWidget {
                             ),
                           ],
                         ),
-                        // Farmer ID
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
@@ -163,7 +353,7 @@ class ProductDetailsScreen extends StatelessWidget {
                               ),
                             ),
                             Text(
-                              "#$farmerId",
+                              "#${widget.farmerId}",
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
@@ -175,8 +365,6 @@ class ProductDetailsScreen extends StatelessWidget {
                       ],
                     ),
                   ),
-
-                  // Price Card
                   Container(
                     margin: EdgeInsets.only(top: 0, bottom: 24),
                     padding: EdgeInsets.all(16),
@@ -207,7 +395,7 @@ class ProductDetailsScreen extends StatelessWidget {
                             ),
                             SizedBox(height: 4),
                             Text(
-                              price,
+                              widget.price,
                               style: TextStyle(
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,
@@ -246,8 +434,6 @@ class ProductDetailsScreen extends StatelessWidget {
                       ],
                     ),
                   ),
-
-                  // Product Features
                   Text(
                     "Maelezo ya Bidhaa",
                     style: TextStyle(
@@ -257,29 +443,57 @@ class ProductDetailsScreen extends StatelessWidget {
                     ),
                   ),
                   SizedBox(height: 16),
-
-                  // Display organic and fresh status based on parameters
-                  if (isOrganic) _buildFeatureRow(
+                  if (widget.isOrganic)
+                    _buildFeatureRow(
                       Icons.check_circle_outline,
                       "Bidhaa za Asili",
-                  ),
-                  if (isOrganic) _buildFeatureRow(Icons.eco_outlined, "Kilimo Hai"),
-                  if (isFresh) _buildFeatureRow(
+                    ),
+                  if (widget.isOrganic)
+                    _buildFeatureRow(Icons.eco_outlined, "Kilimo Hai"),
+                  if (widget.isFresh)
+                    _buildFeatureRow(
                       Icons.local_florist_outlined,
                       "Fresh mazao",
-                  ),
+                    ),
                   _buildFeatureRow(
                     Icons.location_on_outlined,
-                    "Imetoka ${_getProductOrigin(productName)}",
+                    "Imetoka ${_getProductOrigin(widget.productName)}",
                   ),
                   _buildFeatureRow(
                     Icons.calendar_today_outlined,
-                    "Msimu: ${_getProductSeason(productName)}",
+                    "Msimu: ${_getProductSeason(widget.productName)}",
                   ),
-
+                  SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Text(
+                        "Quantity: ",
+                        style: TextStyle(fontSize: 16, color: Colors.black87),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.remove, color: Colors.green.shade700),
+                        onPressed: () {
+                          if (_quantity > 1) {
+                            setState(() => _quantity--);
+                          }
+                        },
+                      ),
+                      Text(
+                        '$_quantity',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.add, color: Colors.green.shade700),
+                        onPressed: () {
+                          setState(() => _quantity++);
+                        },
+                      ),
+                    ],
+                  ),
                   SizedBox(height: 30),
-
-                  // Call to Action Section
                   Text(
                     "Tafadhali chagua hatua inayofuata:",
                     style: TextStyle(
@@ -289,54 +503,23 @@ class ProductDetailsScreen extends StatelessWidget {
                     ),
                   ),
                   SizedBox(height: 20),
-
-                  // Purchase Actions - TWO BUTTONS SIDE BY SIDE
                   Row(
                     children: [
-                      // Buy Now Button
                       Expanded(
                         child: _buildActionButton(
-                          context,
-                          "Nunua Sasa",
-                          Colors.green.shade700,
-                          Icons.shopping_bag_outlined,
-                          () {
-                            // Navigate to checkout page
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => LoginScreen(),
-                              ),
-                            );
-
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text("Kuendelea na malipo..."),
-                                backgroundColor: Colors.green.shade700,
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      SizedBox(width: 12),
-                      // Add to Cart Button
-                      Expanded(
-                        child: _buildActionButton(
-                          context,
                           "Weka Kwa Kikapu",
                           Colors.green.shade700,
                           Icons.shopping_cart_outlined,
-                          () {
-                            // Add to cart functionality
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  "Bidhaa imeongezwa kwenye kikapu",
-                                ),
-                                backgroundColor: Colors.green.shade700,
-                              ),
-                            );
-                          },
+                          _addToCart,
+                        ),
+                      ),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: _buildActionButton(
+                          "Nunua Sasa",
+                          Colors.green.shade700,
+                          Icons.shopping_bag_outlined,
+                          _placeOrder,
                         ),
                       ),
                     ],
@@ -366,7 +549,6 @@ class ProductDetailsScreen extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Chat Button - Now passes the farmer ID
             Expanded(
               child: ElevatedButton.icon(
                 onPressed: () {
@@ -374,10 +556,10 @@ class ProductDetailsScreen extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                       builder: (context) => ChatScreen(
-                        chatUser: "Farmer #$farmerId",
-                        farmerId: farmerId,
-                        productId: productId,
-                        productName: productName,
+                        chatUser: "Farmer #${widget.farmerId}",
+                        farmerId: widget.farmerId,
+                        productId: widget.productId,
+                        productName: widget.productName,
                       ),
                     ),
                   );
@@ -402,114 +584,5 @@ class ProductDetailsScreen extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  Widget _buildFeatureRow(IconData icon, String text) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: 12),
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: Colors.green.shade700),
-          SizedBox(width: 12),
-          Text(text, style: TextStyle(fontSize: 16, color: Colors.black87)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionButton(
-    BuildContext context,
-    String text,
-    Color color,
-    IconData icon,
-    VoidCallback onPressed,
-  ) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: color.withOpacity(0.2),
-            blurRadius: 10,
-            spreadRadius: 0,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: ElevatedButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon),
-        label: Text(
-          text,
-          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: color,
-          foregroundColor: Colors.white,
-          padding: EdgeInsets.symmetric(vertical: 14),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          elevation: 0,
-        ),
-      ),
-    );
-  }
-
-  // Helper methods to get product-specific information
-  String _getProductEmoji(String name) {
-    Map<String, String> emojiMap = {
-      "mahindi": "🌽",
-      "mpunga": "🌾",
-      "maharage": "🫘",
-      "ndizi": "🍌",
-      "nyanya": "🍅",
-      "vitunguu": "🧅",
-      "pilipili": "🌶️",
-      "maembe": "🥭",
-      "mapara chichi": "🥑",
-      "mapera": "🍐",
-      "matikiti maji": "🍉",
-      "pilipili hoho": "🍎",
-      "karafuu": "🌿",
-      "machungwa": "🍊",
-      "ma aple": "🍏",
-      "mdalasini": "🌱",
-      "mapapai": "🍐",
-    };
-
-    return emojiMap[name.toLowerCase()] ?? "🥬";
-  }
-
-  String _getProductOrigin(String name) {
-    Map<String, String> originMap = {
-      "mahindi": "Mbeya",
-      "mpunga": "Morogoro",
-      "maharage": "Arusha",
-      "viazi": "Iringa",
-      "ndizi": "Kilimanjaro",
-      "nyanya": "Iringa",
-      "vitunguu": "Singida",
-      "pilipili": "Tanga",
-      "maembe": "Morogoro",
-      "mapara chichi": "Mbeya",
-    };
-
-    return originMap[name.toLowerCase()] ?? "Tanzania";
-  }
-
-  String _getProductSeason(String name) {
-    Map<String, String> seasonMap = {
-      "mahindi": "Jan - Mar",
-      "mpunga": "Mar - Jun",
-      "maharage": "Apr - Jul",
-      "viazi": "Msimu-Mwaka jana",
-      "ndizi": "Msimu-Mwaka huu",
-      "nyanya": "Sep - Dec",
-      "vitunguu": "Feb - May",
-      "pilipili": "Jan - Dec",
-    };
-
-    return seasonMap[name.toLowerCase()] ?? "Mwaka huu";
   }
 }
