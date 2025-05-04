@@ -145,9 +145,19 @@ exports.updateUser = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+// Get user all users roles
+exports.getAllRoless = (req, res) => {
+    db.query('SELECT DISTINCT role FROM users', (err, results) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+
+        const roles = results.map(row => row.role);
+        res.status(200).json({ roles });
+    });
+};
 
 
-// Get users by role
+// Get users by role specifically
+     //here we are getting users by role=> help me to get users by role
 exports.getUserRoles = (req, res) => {
     const { role } = req.params;
     
@@ -176,6 +186,8 @@ exports.getUserRoles = (req, res) => {
         res.status(200).json(results);
     });
 };
+
+
 
 // Delete user
 exports.deleteUser = (req, res) => {

@@ -7,6 +7,7 @@ router.post('/', userController.createUser);
 router.post('/login', userController.loginUser);
 router.post('/logout', auth, userController.logout); // 
 router.get('/', auth, userController.getUsers);
+router.get('/roles',auth, userController.getAllRoless);
 router.get('/role/:role', auth, userController.getUserRoles); // Fixed route for getting users by role
 router.get('/:id', auth, userController.getUserById);
 router.put('/:id', auth, userController.updateUser);

@@ -119,17 +119,28 @@ class _UserManagementScreenState extends State<UserManagementScreen>
   // API: Fetch roles from backend
   Future<void> _fetchRoles() async {
     try {
+      // Get JWT token from secure storage
+      final token = await _storage.read(key: 'jwt_token');
+
       // Make API request to get all available roles
       final response = await http.get(
-        Uri.parse('http://localhost:3000/api/roles'),
-        headers: {'Content-Type': 'application/json'},
+        Uri.parse('http://localhost:3000/api/users/roles'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
       );
 
       if (response.statusCode == 200) {
-        final List<dynamic> responseData = json.decode(response.body);
+        // Decode the response as a Map first
+        final Map<String, dynamic> responseData = json.decode(response.body);
+
+        // Extract the roles list from the 'roles' key (adjust if the key is different)
+        final List<dynamic> rolesList = responseData['roles'] ?? [];
+
         setState(() {
-          // Map response to list of roles
-          roles = responseData.map((role) => role.toString()).toList();
+          // Map the roles list to a list of strings
+          roles = rolesList.map((role) => role.toString()).toList();
           _selectedRole = roles.isNotEmpty ? roles[0] : 'customer';
         });
       } else {
@@ -151,7 +162,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
       final response = await http.get(
         Uri.parse('http://localhost:3000/api/users'),
         headers: {
-          'Authorization': 'Bearer $token', // Authentication header
+          'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
       );
@@ -238,7 +249,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
     if (!_formKey.currentState!.validate()) return;
 
     if (!roles.contains(_selectedRole)) {
-      _showError('Invalid role selected');
+      _showError('Invalid role selected: $_selectedRole');
       return;
     }
 
@@ -249,7 +260,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
 
       final Map<String, dynamic> updateData = {
         'username': _usernameController.text.trim(),
-        'role': _selectedRole, // Ensure role is valid
+        'role': _selectedRole,
         'email': _emailController.text.trim(),
         'phone': _phoneController.text.trim(),
       };
@@ -257,6 +268,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
       if (_passwordController.text.isNotEmpty) {
         updateData['password'] = _passwordController.text;
       }
+
+      print('Updating user with data: $updateData'); // Debug log
 
       final response = await http.put(
         Uri.parse('http://localhost:3000/api/users/$userId'),
@@ -273,6 +286,8 @@ class _UserManagementScreenState extends State<UserManagementScreen>
         _clearFields();
         _showSuccess('User updated successfully');
       } else {
+        print('Update failed with status: ${response.statusCode}'); // Debug log
+        print('Response body: ${response.body}'); // Debug log
         _showError('Failed to update user: ${response.body}');
       }
     } catch (e) {
@@ -1480,11 +1495,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                                       Padding(
                                         padding: const EdgeInsets.only(top: 8),
                                         child: Text(
-                                          'Filtered by: ${_searchController.text.isNotEmpty
-                                                  ? 'Search '
-                                                  : ''}${_filterRole != null
-                                                  ? 'Role (${'$_filterRole'})'
-                                                  : ''}',
+                                          'Filtered by: ${_searchController.text.isNotEmpty ? 'Search ' : ''}${_filterRole != null ? 'Role (${'$_filterRole'})' : ''}',
                                           style: TextStyle(
                                             color: primaryGreen,
                                             fontSize: 13,
